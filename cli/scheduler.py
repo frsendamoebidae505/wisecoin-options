@@ -232,3 +232,36 @@ class TaskScheduler:
     @property
     def status(self) -> TaskStatus:
         return self._status
+
+
+def main():
+    """命令行入口。"""
+    print("=" * 60)
+    print("WiseCoin 期权分析系统 - 定时调度器")
+    print("=" * 60)
+
+    scheduler = TaskScheduler()
+    scheduler.add_times(TaskScheduler.DEFAULT_TIMES)
+
+    print(f"调度时间点: {len(scheduler.get_scheduled_times())} 个")
+    for st in scheduler.get_scheduled_times():
+        print(f"  - {st}")
+
+    def task():
+        print(f"[{datetime.now()}] 执行定时分析任务...")
+
+    scheduler.start(task)
+    print("\n调度器已启动，按 Ctrl+C 停止...")
+
+    try:
+        while True:
+            time_module.sleep(1)
+    except KeyboardInterrupt:
+        scheduler.stop()
+        print("\n调度器已停止")
+
+    return 0
+
+
+if __name__ == "__main__":
+    exit(main())

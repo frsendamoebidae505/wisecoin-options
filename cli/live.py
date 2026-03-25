@@ -239,3 +239,28 @@ class LiveMonitor:
     @property
     def status(self) -> MonitorStatus:
         return self._status
+
+
+def main():
+    """命令行入口。"""
+    print("=" * 60)
+    print("WiseCoin 期权分析系统 - 实时监控")
+    print("=" * 60)
+
+    monitor = LiveMonitor()
+    monitor.start()
+
+    print("\n监控器已启动，按 Ctrl+C 停止...")
+
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        monitor.stop()
+        print("\n监控器已停止")
+
+    return 0
+
+
+if __name__ == "__main__":
+    exit(main())
