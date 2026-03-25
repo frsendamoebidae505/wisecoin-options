@@ -1,220 +1,282 @@
-# cli/oneclick.py
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
-一键分析模块。
+WiseCoin 期权分析一键执行脚本 (Options Analysis One-Click)
+--------------------------------------------------
+功能：
+依次调用期权相关脚本，完成期权数据获取、分析和隐含波动率计算的完整流程。
+"""
 
-编排完整的数据获取 -> 分析 -> 评分流程。
-"""
-from typing import List, Optional, Dict
-from dataclasses import dataclass
+import subprocess
+import sys
+import os
+import time
 from datetime import datetime
+from pathlib import Path
+import logging
 
-from core.models import OptionQuote, FutureQuote, AnalyzedOption, Signal
-from core.analyzer import OptionAnalyzer
-from core.iv_calculator import IVCalculator
-from strategy.evaluator import StrategyEvaluator
-from strategy.signals import SignalGenerator
-from common.logger import StructuredLogger
+# 设置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s | %(levelname)s | %(message)s',
+    datefmt='%H:%M:%S'
+)
+logger = logging.getLogger('WiseCoin-Options-OneClick')
 
+# ============================================================================
+# 配置脚本序列
+# ============================================================================
 
-@dataclass
-class AnalysisResult:
-    """分析结果"""
-    timestamp: datetime
-    total_options: int
-    analyzed_options: List[AnalyzedOption]
-    top_signals: List[dict]
-    summary: dict
+SCRIPTS_TO_RUN = [
+    {
+        'name': '备份',
+        'path': '00wisecoin_options_backup.py',
+        'type': 'python',
+        'description': '备份数据'
+    },
+    {
+        'name': '期权合约排名与行情获取',
+        'path': '01wisecoin-options-ranking.py',
+        'type': 'python',
+        'description': '获取期权合约列表、详细信息、行情数据，并按产品分类导出',
+        'completion_signal': '非标的期货行情保存完成'  # 完成标志（监控实时输出）
+    },
+    {
+        'name': 'OpenCTP行情数据获取',
+        'path': '02wisecoin-openctp-api.py',
+        'type': 'python',
+        'description': '通过OpenCTP接口获取期权行情数据'
+    },
+    {
+        'name': '期权分析与策略筛选',
+        'path': '03wisecoin-options-analyze.py',
+        'type': 'python',
+        'description': '执行期权深度分析、策略筛选和多因子评分',
+        'completion_signal': '期权参考数据生成完成'  # 完成标志（监控实时输出）
+    },
+    {
+        'name': '期权隐含波动率计算',
+        'path': '04wisecoin-options-iv.py',
+        'type': 'python',
+        'description': '计算期权隐含波动率并生成波动率微笑曲线'
+    },
+    {
+        'name': '期货标的行情分析',
+        'path': '05wisecoin-futures-analyze.py',
+        'type': 'python',
+        'description': '分析期权标的期货合约的行情数据'
+    },
+    {
+        'name': '期货开仓方向',
+        'path': '08wisecoin_symbol_lsn.py',
+        'type': 'python',
+        'description': '期货开仓方向'
+    },
+    {
+        'name': '标的期货K线',
+        'path': '09wisecoin-futures-klines.py',
+        'type': 'python',
+        'description': '标的期货K线',
+        'completion_signal': '所有标的期货K线数据获取完成'  # 完成标志（监控实时输出）
+    }
+]
 
-    @property
-    def buy_count(self) -> int:
-        return sum(1 for a in self.analyzed_options if a.signal == Signal.BUY)
+# ============================================================================
+# 执行引擎
+# ============================================================================
 
-    @property
-    def sell_count(self) -> int:
-        return sum(1 for a in self.analyzed_options if a.signal == Signal.SELL)
+class OptionsOneClickExecutor:
+    """期权分析一键执行引擎"""
 
+    def __init__(self):
+        self.results = []
+        self.start_time = None
 
-class OneClickAnalyzer:
-    """
-    一键分析器。
+    def execute_task(self, index: int, task: dict) -> bool:
+        """执行单个任务"""
+        logger.info(f"\n🚀 [{index}/{len(SCRIPTS_TO_RUN)}] 执行任务: {task['name']}")
+        logger.info(f"   路径: {task['path']}")
+        logger.info(f"   描述: {task['description']}")
 
-    编排完整分析流程：数据准备 -> 基础分析 -> IV计算 -> 评分 -> 信号生成
+        script_path = Path(task['path'])
+        if not script_path.exists():
+            logger.error(f"   ❌ 错误: 文件不存在: {task['path']}")
+            return False
 
-    Example:
-        >>> analyzer = OneClickAnalyzer()
-        >>> result = analyzer.run(options, futures_prices)
-    """
+        # 使用绝对路径以避免 cwd 切换导致的路径寻找失败
+        abs_script_path = str(script_path.resolve())
 
-    def __init__(self, logger: Optional[StructuredLogger] = None):
-        self.logger = logger or StructuredLogger("oneclick")
-        self.option_analyzer = OptionAnalyzer()
-        self.iv_calculator = IVCalculator()
-        self.evaluator = StrategyEvaluator()
-        self.signal_generator = SignalGenerator()
+        task_start = time.time()
+        try:
+            if task['type'] == 'python':
+                cmd = [sys.executable, abs_script_path]
+            elif task['type'] == 'command':
+                # 对于 .command 文件，使用 bash 执行
+                cmd = ['bash', abs_script_path]
+            else:
+                logger.error(f"   ❌ 未知的任务类型: {task['type']}")
+                return False
 
-    def run(
-        self,
-        options: List[OptionQuote],
-        futures_prices: Dict[str, float],
-        iv_reference: Optional[float] = None,
-    ) -> AnalysisResult:
-        """
-        执行一键分析。
+            # 检查是否需要监控实时输出完成标志
+            completion_signal = task.get('completion_signal')
 
-        Args:
-            options: 期权行情列表
-            futures_prices: 标的期货价格映射
-            iv_reference: IV 参考值（可选）
+            if completion_signal:
+                # 需要监控实时输出的任务
+                return self._execute_with_output_monitoring(cmd, task, completion_signal, task_start)
+            else:
+                # 普通任务，等待正常退出
+                return self._execute_normal(cmd, task, task_start)
 
-        Returns:
-            分析结果
-        """
-        self.logger.info("开始一键分析", total_options=len(options))
+        except Exception as e:
+            logger.error(f"   ❌ 执行异常: {e}")
+            self.results.append({'task': task, 'status': 'ERROR', 'error': str(e)})
+            return False
 
-        timestamp = datetime.now()
+    def _execute_normal(self, cmd: list, task: dict, task_start: float) -> bool:
+        """执行普通任务（等待进程正常退出）"""
+        # 执行子进程
+        process = subprocess.Popen(
+            cmd,
+            cwd=task.get('cwd', os.getcwd()),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            universal_newlines=True
+        )
 
-        # 1. 基础分析
-        analyzed = self.option_analyzer.analyze(options, futures_prices)
-        self.logger.info("基础分析完成", analyzed_count=len(analyzed))
+        # 实时显示输出（可选：根据需要过滤）
+        for line in iter(process.stdout.readline, ''):
+            line = line.strip()
+            if line:
+                # 只显示包含特定表情符号的行，或者是关键结果
+                if any(emoji in line for emoji in ['✅', '❌', '🎉', '📊', '💾', '🚀', '📈', '📉', '🎯']):
+                    logger.info(f"   │ {line}")
 
-        # 2. IV 计算
-        for item in analyzed:
-            future_price = futures_prices.get(item.option.underlying, 0)
-            if future_price > 0:
+        process.wait()
+        return_code = process.returncode
+        elapsed = time.time() - task_start
+
+        if return_code == 0:
+            logger.info(f"   ✅ 执行成功！耗时: {elapsed:.1f}秒")
+            self.results.append({'task': task, 'status': 'SUCCESS', 'time': elapsed})
+            return True
+        else:
+            logger.error(f"   ❌ 执行失败 (错误码: {return_code})")
+            self.results.append({'task': task, 'status': 'FAILED', 'time': elapsed, 'code': return_code})
+            return False
+
+    def _execute_with_output_monitoring(self, cmd: list, task: dict, completion_signal: str,
+                                        task_start: float) -> bool:
+        """执行需要监控实时输出的任务"""
+        logger.info(f"   ⏳ 监控模式: 等待输出出现 '{completion_signal}'")
+
+        # 启动子进程
+        process = subprocess.Popen(
+            cmd,
+            cwd=task.get('cwd', os.getcwd()),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            universal_newlines=True
+        )
+
+        completion_detected = False
+
+        # 实时读取并监控输出
+        try:
+            for line in iter(process.stdout.readline, ''):
+                if not line:
+                    break
+
+                line = line.strip()
+                if line:
+                    # 显示包含特定表情符号的行，或者是关键结果
+                    if any(emoji in line for emoji in ['✅', '❌', '🎉', '📊', '💾', '🚀', '📈', '📉', '🎯']):
+                        logger.info(f"   │ {line}")
+
+                    # 检测完成标志
+                    if completion_signal in line:
+                        completion_detected = True
+                        logger.info(f"   ✅ 检测到完成标志: '{completion_signal}'")
+                        break
+        except Exception as e:
+            logger.error(f"   ❌ 读取输出异常: {e}")
+
+        # 如果检测到完成标志，终止进程
+        if completion_detected:
+            logger.info(f"   🛑 正在终止进程 (PID: {process.pid})...")
+            try:
+                # 优雅终止
+                process.terminate()
                 try:
-                    iv = self.iv_calculator.calculate_iv(item.option, future_price)
-                    item.iv = iv
-                except ValueError:
-                    # Skip IV calculation if option price is invalid
-                    pass
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    # 强制终止
+                    logger.warning(f"   ⚠️ 优雅终止超时，强制结束进程")
+                    process.kill()
+                    process.wait()
 
-        # 3. 评分
-        evaluated = self.evaluator.evaluate(analyzed, iv_reference)
-        self.logger.info("评分完成", evaluated_count=len(evaluated))
+                elapsed = time.time() - task_start
+                logger.info(f"   ✅ 任务完成！耗时: {elapsed:.1f}秒")
+                self.results.append({'task': task, 'status': 'SUCCESS', 'time': elapsed, 'terminated': True})
+                return True
+            except Exception as e:
+                logger.error(f"   ❌ 终止进程失败: {e}")
+                elapsed = time.time() - task_start
+                self.results.append({'task': task, 'status': 'ERROR', 'time': elapsed, 'error': str(e)})
+                return False
+        else:
+            # 进程自然退出
+            process.wait()
+            return_code = process.returncode
+            elapsed = time.time() - task_start
 
-        # 4. 生成信号
-        signals = self.signal_generator.generate(evaluated)
+            if return_code == 0:
+                logger.info(f"   ✅ 执行成功！耗时: {elapsed:.1f}秒")
+                self.results.append({'task': task, 'status': 'SUCCESS', 'time': elapsed})
+                return True
+            else:
+                logger.error(f"   ❌ 执行失败 (错误码: {return_code})")
+                self.results.append({'task': task, 'status': 'FAILED', 'time': elapsed, 'code': return_code})
+                return False
 
-        # 5. 构建结果
-        top_signals = [
-            {
-                'symbol': s.symbol,
-                'direction': s.direction,
-                'volume': s.volume,
-                'price': s.price,
-                'score': s.score,
-                'reasons': s.reasons[:3],  # 只保留前3个原因
-            }
-            for s in signals[:10]  # 只保留前10个信号
-        ]
+    def run(self):
+        """运行全部流程"""
+        self.start_time = time.time()
+        logger.info("=" * 80)
+        logger.info("WiseCoin 期权分析一键执行流程启动".center(80))
+        logger.info("=" * 80)
 
-        summary = {
-            'total_options': len(options),
-            'analyzed_count': len(analyzed),
-            'avg_score': sum(a.score for a in evaluated) / len(evaluated) if evaluated else 0,
-            'max_score': max((a.score for a in evaluated), default=0),
-            'signal_count': len(signals),
-        }
+        for i, task in enumerate(SCRIPTS_TO_RUN, 1):
+            # 执行任务，即使失败也继续下一步
+            self.execute_task(i, task)
 
-        result = AnalysisResult(
-            timestamp=timestamp,
-            total_options=len(options),
-            analyzed_options=evaluated,
-            top_signals=top_signals,
-            summary=summary,
-        )
+        self.print_summary()
 
-        self.logger.info(
-            "一键分析完成",
-            total=len(evaluated),
-            buy=result.buy_count,
-            sell=result.sell_count,
-        )
+    def print_summary(self):
+        """打印总结"""
+        total_time = time.time() - self.start_time
+        logger.info("\n" + "=" * 80)
+        logger.info("一键执行总结".center(80))
+        logger.info("=" * 80)
+        logger.info(f"总耗时: {total_time:.1f}秒")
 
-        return result
+        for i, res in enumerate(self.results, 1):
+            task = res['task']
+            status = res['status']
+            icon = "✅" if status == 'SUCCESS' else "❌"
+            time_str = f"({res['time']:.1f}s)" if 'time' in res else ""
+            logger.info(f"  [{i}] {icon} {task['name']:25} {time_str}")
 
-    def run_quick(
-        self,
-        options: List[OptionQuote],
-        futures_prices: Dict[str, float],
-        top_n: int = 5,
-    ) -> List[AnalyzedOption]:
-        """
-        快速分析，只返回前N个评分最高的期权。
-
-        Args:
-            options: 期权行情列表
-            futures_prices: 标的期货价格映射
-            top_n: 返回数量
-
-        Returns:
-            前N个分析结果
-        """
-        result = self.run(options, futures_prices)
-        return result.analyzed_options[:top_n]
+        logger.info("=" * 80)
 
 
 def main():
-    """命令行入口。"""
-    from datetime import date
-    from core.models import CallOrPut
-
-    print("=" * 60)
-    print("WiseCoin 期权分析系统 - 一键分析")
-    print("=" * 60)
-
-    # 创建示例数据
-    options = [
-        OptionQuote(
-            symbol="SHFE.au2406C480",
-            underlying="SHFE.au2406",
-            exchange_id="SHFE",
-            strike_price=480.0,
-            call_or_put=CallOrPut.CALL,
-            last_price=15.0,
-            bid_price=14.8,
-            ask_price=15.2,
-            volume=100,
-            open_interest=500,
-            expire_date=date(2024, 6, 15),
-        ),
-        OptionQuote(
-            symbol="SHFE.au2406P480",
-            underlying="SHFE.au2406",
-            exchange_id="SHFE",
-            strike_price=480.0,
-            call_or_put=CallOrPut.PUT,
-            last_price=10.0,
-            bid_price=9.8,
-            ask_price=10.2,
-            volume=200,
-            open_interest=800,
-            expire_date=date(2024, 6, 15),
-        ),
-    ]
-
-    futures_prices = {"SHFE.au2406": 485.0}
-
-    # 运行分析
-    analyzer = OneClickAnalyzer()
-    result = analyzer.run(options, futures_prices)
-
-    # 打印结果
-    print(f"\n分析时间: {result.timestamp}")
-    print(f"分析期权数: {result.total_options}")
-    print(f"买入信号: {result.buy_count}")
-    print(f"卖出信号: {result.sell_count}")
-    print(f"\n评分摘要:")
-    print(f"  平均分: {result.summary['avg_score']:.2f}")
-    print(f"  最高分: {result.summary['max_score']:.2f}")
-
-    if result.top_signals:
-        print(f"\nTop 信号:")
-        for i, sig in enumerate(result.top_signals, 1):
-            print(f"  {i}. {sig['symbol']} - {sig['direction']} "
-                  f"@{sig['price']:.2f} 评分:{sig['score']:.1f}")
-
-    print("\n" + "=" * 60)
+    """命令行入口"""
+    executor = OptionsOneClickExecutor()
+    executor.run()
     return 0
 
 

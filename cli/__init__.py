@@ -6,29 +6,20 @@ WiseCoin CLI 层。
 
 __all__ = [
     # One-click analysis
-    'OneClickAnalyzer',
-    'AnalysisResult',
+    'OptionsOneClickExecutor',
     # Scheduler
-    'TaskScheduler',
-    'TaskStatus',
-    'ScheduledTime',
-    'TaskResult',
-    # Live monitor
-    'LiveMonitor',
-    'MonitorStatus',
-    'MonitorEvent',
+    'SCHEDULED_TIMES',
+    'is_trading_day',
+    'execute_script',
 ]
 
 
 def __getattr__(name):
     """延迟导入以避免模块执行时的警告。"""
-    if name in ('OneClickAnalyzer', 'AnalysisResult'):
-        from cli.oneclick import OneClickAnalyzer, AnalysisResult
-        return locals().get(name)
-    elif name in ('TaskScheduler', 'TaskStatus', 'ScheduledTime', 'TaskResult'):
-        from cli.scheduler import TaskScheduler, TaskStatus, ScheduledTime, TaskResult
-        return locals().get(name)
-    elif name in ('LiveMonitor', 'MonitorStatus', 'MonitorEvent'):
-        from cli.live import LiveMonitor, MonitorStatus, MonitorEvent
+    if name == 'OptionsOneClickExecutor':
+        from cli.oneclick import OptionsOneClickExecutor
+        return OptionsOneClickExecutor
+    elif name in ('SCHEDULED_TIMES', 'is_trading_day', 'execute_script'):
+        from cli.scheduler import SCHEDULED_TIMES, is_trading_day, execute_script
         return locals().get(name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
