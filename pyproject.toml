@@ -1,0 +1,38 @@
+[project]
+name = "wisecoin-options"
+version = "2.0.0"
+description = "WiseCoin 期权分析系统"
+requires-python = ">=3.10"
+dependencies = [
+    "tqsdk>=3.4.0",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "openpyxl>=3.1.0",
+    "structlog>=23.0.0",
+    "dependency-injector>=4.41.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.coverage.run]
+source = ["common"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+]
