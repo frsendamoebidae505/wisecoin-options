@@ -74,8 +74,16 @@ class BackupManager:
             # 确保备份目录存在
             self.backup_dir.mkdir(parents=True, exist_ok=True)
 
+            # 排除备份目录自身，避免递归复制
+            ignore_patterns = shutil.ignore_patterns(
+                'backups',           # 排除备份目录
+                '__pycache__',       # 排除缓存
+                '.venv',             # 排除虚拟环境
+                '*.pyc',             # 排除编译文件
+            )
+
             # 复制目录
-            shutil.copytree(self.source_dir, backup_path, dirs_exist_ok=True)
+            shutil.copytree(self.source_dir, backup_path, ignore=ignore_patterns)
 
             self.logger.info(f"备份创建成功: {backup_path}")
             return str(backup_path)

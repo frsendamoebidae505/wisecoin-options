@@ -3,6 +3,7 @@ import time
 import os
 import pandas as pd
 import numpy as np
+from pathlib import Path
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QLabel, QTableWidget, QTableWidgetItem, 
                              QHeaderView, QComboBox, QPushButton, QGroupBox, 
@@ -61,41 +62,37 @@ class AlignmentDelegate(QStyledItemDelegate):
 class ScriptRunner(QThread):
     """
     后台脚本执行线程
-    按顺序执行数据流水线脚本，并在每一步完成后通知 UI
+    按顺序执行数据流水线模块，并在每一步完成后通知 UI
     """
     progress_signal = pyqtSignal(str)  # 状态消息
     finished_signal = pyqtSignal(bool, str)  # 成功/失败, 消息
 
-    def __init__(self, script_dir):
+    def __init__(self, project_root):
         super().__init__()
-        self.script_dir = script_dir
+        self.project_root = project_root
         self.python_exe = sys.executable
-        self.scripts = [
-            ("13wisecoin_options_live_symbol.py", "生成wisecoin-symbol-live.json"),
-            ("14wisecoin_options_client_data.py", "获取期权期货行情"),
-            ("14wisecoin_options_client_data_klines.py", "获取期货K线数据"),
-            ("15wisecoin_options_client_analyze_options.py", "生成期权参考与排行"),
-            ("16wisecoin_options_client_iv.py", "计算隐含波动率与Greeks"),
-            ("17wisecoin_options_client_analyze_futures.py", "生成货权联动分析"),
-            ("19wisecoin_options_client_arbitrage.py", "生成期权套利分析"),
-            ("19wisecoin_options_client_strategy.py", "生成期权策略建议")
+        # 使用新架构模块
+        self.modules = [
+            ("data.backup", "数据备份"),
+            ("data.option_quotes", "获取期权期货行情"),
+            ("data.klines", "获取期货K线数据"),
+            ("cli.option_analyzer", "生成期权参考与排行(含IV/Greeks)"),
+            ("cli.futures_analyzer", "生成货权联动与市场概览"),
         ]
 
     def run(self):
         start_time = time.time()
         try:
-            for idx, (script_name, description) in enumerate(self.scripts, 1):
-                msg = f"步骤 [{idx}/{len(self.scripts)}]: {description}..."
+            for idx, (module_name, description) in enumerate(self.modules, 1):
+                msg = f"步骤 [{idx}/{len(self.modules)}]: {description}..."
                 self.progress_signal.emit(msg)
-                
-                script_path = os.path.join(self.script_dir, script_name)
-                if not os.path.exists(script_path):
-                    raise FileNotFoundError(f"找不到脚本: {script_name}")
 
-                # 使用 subprocess 执行脚本
+                # 使用 python -m 方式调用模块
+                cmd = [self.python_exe, '-m', module_name]
+
                 process = subprocess.Popen(
-                    [self.python_exe, script_path],
-                    cwd=self.script_dir,
+                    cmd,
+                    cwd=str(self.project_root),
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,
@@ -366,12 +363,16 @@ class OptionTShapeWindow(QMainWindow):
         self.contract_list = []  # 合约列表（标的+交割月）
         self.current_underlying = None # 当前选中的标的
         self.current_expiry = None     # 当前选中的交割月
-        
-        # 实时数据目录
-        self.script_dir = os.path.dirname(os.path.abspath(__file__))
-        self.temp_dir = os.path.join(self.script_dir, "..")
-        self.backup_dir = os.path.join(self.temp_dir, "backups")
-        
+
+        # 实时数据目录 - 使用项目根目录
+        # 无论从哪个目录运行，都定位到项目根目录
+        self.project_root = Path(__file__).parent.parent.resolve()
+        self.temp_dir = str(self.project_root)
+        self.backup_dir = str(self.project_root / "backups")
+
+        print(f"项目根目录: {self.project_root}")
+        print(f"数据目录: {self.temp_dir}")
+
         if not os.path.exists(self.temp_dir):
             os.makedirs(self.temp_dir)
         
@@ -509,7 +510,7 @@ class OptionTShapeWindow(QMainWindow):
         
         prefix = "[自动] " if is_auto else "[手工] "
         
-        self.runner = ScriptRunner(self.script_dir)
+        self.runner = ScriptRunner(self.project_root)
         self.runner.progress_signal.connect(lambda msg: self.status_label.setText(f"状态：{prefix}{msg}"))
         self.runner.finished_signal.connect(self.on_script_finished)
         self.runner.start()

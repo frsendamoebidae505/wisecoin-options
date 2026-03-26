@@ -4,9 +4,27 @@ WiseCoin 数据层。
 提供数据获取、缓存、备份等功能。
 """
 
-from data.cache import QuoteCache
-from data.backup import BackupManager
-from data.openctp import OpenCTPClient, fetch_openctp_data, check_margin_ratios
+# 使用延迟导入避免循环导入警告
+# 当运行 `python3 -m data.backup` 时，不会触发这些导入
+
+def __getattr__(name):
+    """延迟导入模块成员"""
+    if name == 'QuoteCache':
+        from data.cache import QuoteCache
+        return QuoteCache
+    elif name == 'BackupManager':
+        from data.backup import BackupManager
+        return BackupManager
+    elif name == 'OpenCTPClient':
+        from data.openctp import OpenCTPClient
+        return OpenCTPClient
+    elif name == 'fetch_openctp_data':
+        from data.openctp import fetch_openctp_data
+        return fetch_openctp_data
+    elif name == 'check_margin_ratios':
+        from data.openctp import check_margin_ratios
+        return check_margin_ratios
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 # TqSDK 客户端（延迟导入以支持无 TqSDK 环境）
 def get_tqsdk_client():
