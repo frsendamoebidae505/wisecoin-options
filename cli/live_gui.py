@@ -1929,7 +1929,6 @@ class OptionTShapeWindow(QMainWindow):
             # 设置坐标轴标签 - 加粗深色
             ax.set_xlabel('期限', fontsize=9, labelpad=8, fontweight='bold', color='#2F4F4F')
             ax.set_ylabel('行权价 (%)', fontsize=9, labelpad=8, fontweight='bold', color='#2F4F4F')
-            ax.set_zlabel('IV (%)', fontsize=9, labelpad=8, fontweight='bold', color='#2F4F4F')
             
             # 设置刻度样式
             ax.tick_params(axis='x', pad=2, colors='#555555', labelsize=8)
@@ -2025,15 +2024,7 @@ class OptionTShapeWindow(QMainWindow):
         ax.set_ylabel('隐含波动率 (%)', fontsize=10)
         ax.legend(loc='upper right', fontsize=9, framealpha=0.9)
         ax.grid(True, alpha=0.3, linestyle='--')
-        
-        # 添加注释
-        if not calls.empty or not puts.empty:
-            all_iv = pd.concat([calls['隐含波动率'], puts['隐含波动率']]) if not puts.empty else calls['隐含波动率']
-            avg_iv = all_iv.mean()
-            ax.axhline(y=avg_iv, color='gray', linestyle=':', linewidth=1, alpha=0.6)
-            ax.text(ax.get_xlim()[1], avg_iv, f' 平均IV: {avg_iv:.1f}%', 
-                    va='center', ha='left', fontsize=8, color='gray')
-        
+
         self.smile_fig.tight_layout()
         self.smile_canvas.draw()
     
