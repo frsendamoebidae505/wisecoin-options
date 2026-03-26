@@ -79,19 +79,19 @@ class BackupManager:
         try:
             # 确保备份目录存在
             self.backup_dir.mkdir(parents=True, exist_ok=True)
+            backup_path.mkdir(parents=True, exist_ok=True)
 
-            # 排除备份目录自身，避免递归复制
-            ignore_patterns = shutil.ignore_patterns(
-                'backups',           # 排除备份目录
-                '__pycache__',       # 排除缓存
-                '.venv',             # 排除虚拟环境
-                '*.pyc',             # 排除编译文件
-            )
+            # 只备份 json 和 excel 文件
+            extensions = {'.json', '.xlsx', '.xls'}
+            copied_count = 0
 
-            # 复制目录
-            shutil.copytree(self.source_dir, backup_path, ignore=ignore_patterns)
+            for file_path in self.source_dir.iterdir():
+                if file_path.is_file() and file_path.suffix.lower() in extensions:
+                    dest_path = backup_path / file_path.name
+                    shutil.copy2(file_path, dest_path)
+                    copied_count += 1
 
-            self.logger.info(f"备份创建成功: {backup_path}")
+            self.logger.info(f"备份创建成功: {backup_path} ({copied_count} 个文件)")
 
             # 自动清理旧备份
             self._cleanup_backups()

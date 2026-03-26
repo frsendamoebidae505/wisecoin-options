@@ -4,3 +4,4 @@ __pycache__/
 config.json
 /trade/__pycache__
 /strategy/__pycache__
+/backups

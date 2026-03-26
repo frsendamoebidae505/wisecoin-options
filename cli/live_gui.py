@@ -4,9 +4,9 @@ import os
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                             QHBoxLayout, QLabel, QTableWidget, QTableWidgetItem, 
-                             QHeaderView, QComboBox, QPushButton, QGroupBox, 
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
+                             QHBoxLayout, QLabel, QTableWidget, QTableWidgetItem,
+                             QHeaderView, QComboBox, QPushButton, QGroupBox,
                              QGridLayout, QSplitter, QMessageBox, QTabWidget, QDialog, QFrame,
                              QStyledItemDelegate, QStyleOptionViewItem)
 from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal
@@ -26,6 +26,22 @@ import re
 from openpyxl.utils import get_column_letter
 from openpyxl.drawing.image import Image as OpenpyxlImage
 import io
+
+
+def _truncate_text(text: str, max_chars: int = 50) -> str:
+    """
+    截断文本以避免 UI 过宽。
+
+    Args:
+        text: 原始文本
+        max_chars: 最大字符数
+
+    Returns:
+        截断后的文本
+    """
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars - 3] + "..."
 
 # 配置matplotlib中文显示
 if platform.system() == 'Darwin':
@@ -62,7 +78,8 @@ class AlignmentDelegate(QStyledItemDelegate):
 class ScriptRunner(QThread):
     """
     后台脚本执行线程
-    按顺序执行数据流水线模块，并在每一步完成后通知 UI
+    按顺序执行数据流水线模块，并在每一步完成后通知 UI。
+    调用 cli.oneclick 模块保证数据处理的一致性。
     """
     progress_signal = pyqtSignal(str)  # 状态消息
     finished_signal = pyqtSignal(bool, str)  # 成功/失败, 消息
@@ -71,43 +88,54 @@ class ScriptRunner(QThread):
         super().__init__()
         self.project_root = project_root
         self.python_exe = sys.executable
-        # 使用新架构模块
-        self.modules = [
-            ("data.backup", "数据备份"),
-            ("data.option_quotes", "获取期权期货行情"),
-            ("data.klines", "获取期货K线数据"),
-            ("cli.option_analyzer", "生成期权参考与排行(含IV/Greeks)"),
-            ("cli.futures_analyzer", "生成货权联动与市场概览"),
-        ]
 
     def run(self):
+        """执行一键数据处理流程"""
         start_time = time.time()
         try:
-            for idx, (module_name, description) in enumerate(self.modules, 1):
-                msg = f"步骤 [{idx}/{len(self.modules)}]: {description}..."
-                self.progress_signal.emit(msg)
+            self.progress_signal.emit("启动一键数据处理...")
 
-                # 使用 python -m 方式调用模块
-                cmd = [self.python_exe, '-m', module_name]
+            # 调用 cli.oneclick 模块
+            cmd = [self.python_exe, '-m', 'cli.oneclick']
 
-                process = subprocess.Popen(
-                    cmd,
-                    cwd=str(self.project_root),
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    bufsize=1
-                )
-                
-                # 等待脚本完成
-                stdout, _ = process.communicate()
-                
-                if process.returncode != 0:
-                    raise Exception(f"{script_name} 执行失败 (Code {process.returncode})")
-            
+            process = subprocess.Popen(
+                cmd,
+                cwd=str(self.project_root),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1
+            )
+
+            # 实时读取输出
+            current_step = ""
+            for line in iter(process.stdout.readline, ''):
+                if not line:
+                    break
+                line = line.strip()
+                if not line:
+                    continue
+
+                # 解析关键进度信息
+                if '🚀' in line or '步骤' in line or '开始执行' in line:
+                    current_step = line
+                    self.progress_signal.emit(line)
+                elif '✅' in line or '完成' in line:
+                    self.progress_signal.emit(line)
+                elif '❌' in line or '失败' in line:
+                    self.progress_signal.emit(line)
+                # 显示模块进度
+                elif '│' in line:
+                    self.progress_signal.emit(line)
+
+            process.wait()
+
+            if process.returncode != 0:
+                raise Exception(f"数据处理失败 (返回码 {process.returncode})")
+
             elapsed = time.time() - start_time
             self.finished_signal.emit(True, f"数据刷新完成 (耗时 {elapsed:.1f}s)")
-            
+
         except Exception as e:
             self.finished_signal.emit(False, str(e))
 
@@ -466,7 +494,9 @@ class OptionTShapeWindow(QMainWindow):
         prefix = "[自动] " if is_auto else "[手工] "
         
         self.runner = ScriptRunner(self.project_root)
-        self.runner.progress_signal.connect(lambda msg: self.status_label.setText(f"状态：{prefix}{msg}"))
+        self.runner.progress_signal.connect(
+            lambda msg: self.status_label.setText(f"状态：{prefix}{_truncate_text(msg)}")
+        )
         self.runner.finished_signal.connect(self.on_script_finished)
         self.runner.start()
 
@@ -550,6 +580,7 @@ class OptionTShapeWindow(QMainWindow):
         
         self.status_label = QLabel("状态：未加载")
         self.status_label.setStyleSheet("color: gray; font-weight: bold;")
+        self.status_label.setMaximumWidth(400)  # 限制最大宽度，避免撑大UI
         controls_layout.addWidget(self.status_label)
         
         main_layout.addLayout(controls_layout)

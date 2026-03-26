@@ -17,6 +17,7 @@ Example:
 """
 
 import asyncio
+import json
 import os
 import re
 from typing import List, Dict, Optional, Set, Any
@@ -27,6 +28,9 @@ import numpy as np
 
 from common.config import Config
 from common.logger import StructuredLogger
+
+# 项目根目录
+PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 from common.excel_io import ExcelWriter, ExcelReader
 from common.exceptions import DataFetchError
 
@@ -70,6 +74,7 @@ class OptionQuotesManager:
     QUOTE_EXCEL_FILE = "wisecoin-期权行情.xlsx"
     FUTURES_EXCEL_FILE = "wisecoin-期货行情.xlsx"
     FUTURES_NO_OPTION_EXCEL_FILE = "wisecoin-期货行情-无期权.xlsx"
+    SYMBOL_LIVE_FILE = "wisecoin-symbol-live.json"
 
     def __init__(
         self,
@@ -77,6 +82,7 @@ class OptionQuotesManager:
         config: Optional[Config] = None,
         logger: Optional[StructuredLogger] = None,
         output_dir: Optional[str] = None,
+        use_live_symbol: bool = True,
     ):
         """
         初始化期权行情管理器。
@@ -85,17 +91,38 @@ class OptionQuotesManager:
             client: TqSdkClient 实例。
             config: 配置实例（可选）。
             logger: 日志器实例（可选）。
-            output_dir: 输出目录（可选，默认当前目录）。
+            output_dir: 输出目录（可选，默认项目根目录）。
+            use_live_symbol: 是否使用 wisecoin-symbol-live.json 过滤标的（默认True）。
         """
         self.client = client
         self.config = config or Config()
         self.logger = logger or StructuredLogger("option_quotes")
-        self.output_dir = Path(output_dir) if output_dir else Path.cwd()
+        self.output_dir = Path(output_dir) if output_dir else PROJECT_ROOT
+        self.use_live_symbol = use_live_symbol
 
         # 从配置获取参数
         self.batch_size = self.config.data.quote_batch_size
         self.save_interval = self.config.data.save_interval
         self.api_rebuild_interval = self.config.data.api_rebuild_interval
+
+        # 加载 live symbol 配置
+        self.live_symbols: List[str] = []
+        if self.use_live_symbol:
+            self._load_live_symbols()
+
+    def _load_live_symbols(self):
+        """加载 live symbol 配置文件"""
+        live_file = self._get_output_path(self.SYMBOL_LIVE_FILE)
+        if live_file.exists():
+            try:
+                with open(live_file, 'r', encoding='utf-8') as f:
+                    self.live_symbols = json.load(f)
+                self.logger.info(f"已加载 {len(self.live_symbols)} 个标的合约配置: {live_file}")
+            except Exception as e:
+                self.logger.warning(f"加载 live symbol 配置失败: {e}")
+                self.live_symbols = []
+        else:
+            self.logger.info(f"未找到 {live_file}，将获取全市场期权数据")
 
     @property
     def api(self) -> TqApi:
@@ -118,8 +145,8 @@ class OptionQuotesManager:
         """
         获取所有期权合约。
 
-        获取全市场期权合约，过滤掉股票期权，
-        按产品分类导出到 Excel 文件。
+        如果配置了 live_symbols，只获取指定标的的期权合约；
+        否则获取全市场期权合约，过滤掉股票期权。
 
         Returns:
             过滤后的期权合约列表。
@@ -128,60 +155,151 @@ class OptionQuotesManager:
             DataFetchError: 数据获取失败。
         """
         try:
-            self.logger.info("开始获取所有期权合约...")
+            # 如果有 live_symbols 配置，直接按标的获取期权（高效）
+            if self.live_symbols:
+                return await self._get_options_by_underlying()
 
-            # 获取所有期权合约
-            option_list = await self.api.query_quotes(ins_class='OPTION', expired=False)
-
-            # 过滤掉股票期权（只保留商品期权和股指期权）
-            filtered_options = []
-            for symbol in option_list:
-                exchange = symbol.split('.')[0]
-                if exchange not in OPTION_FILTER_CONFIG['exclude_exchanges']:
-                    filtered_options.append(symbol)
-
-            filtered_options = sorted(filtered_options)
-            self.logger.info(f"获取到 {len(filtered_options)} 个期权合约（已过滤股票期权）")
-
-            # 获取详细的合约信息
-            self.logger.info(f"正在获取 {len(filtered_options)} 个合约的详细信息...")
-
-            # 分批获取合约信息，避免超时
-            batch_size = 500
-            all_symbol_info = []
-            for i in range(0, len(filtered_options), batch_size):
-                batch = filtered_options[i:i + batch_size]
-                try:
-                    batch_df = await asyncio.wait_for(
-                        self.api.query_symbol_info(batch), 60
-                    )
-                    if not batch_df.empty:
-                        all_symbol_info.append(batch_df)
-                    self.logger.info(
-                        f"已获取 {min(i + batch_size, len(filtered_options))}/"
-                        f"{len(filtered_options)} 个合约信息"
-                    )
-                except Exception as e:
-                    self.logger.warning(f"获取批次 {i}-{i+batch_size} 失败: {e}")
-
-            if not all_symbol_info:
-                self.logger.error("未能获取到任何合约信息")
-                return filtered_options
-
-            symbol_info_df = pd.concat(all_symbol_info)
-
-            # 按产品分组并保存到 Excel
-            if not symbol_info_df.empty:
-                output_path = self._get_output_path(self.SYMBOL_EXCEL_FILE)
-                self.logger.info(f"正在按产品分类导出到 {output_path}...")
-
-                self._save_symbols_by_product(symbol_info_df, output_path)
-
-            return filtered_options
+            # 否则获取全市场期权合约
+            self.logger.info("开始获取全市场期权合约...")
+            return await self._get_all_options_full()
 
         except Exception as e:
             self.logger.error(f"获取期权品种列表失败: {e}")
-            raise DataFetchError(f"获取期权品种列表失败: {e}") from e
+            raise
+
+    async def _get_options_by_underlying(self) -> List[str]:
+        """
+        根据 live_symbols 直接按标的获取期权合约（高效模式）。
+
+        Returns:
+            过滤后的期权合约列表。
+        """
+        self.logger.info(f"按 {len(self.live_symbols)} 个标的合约获取期权...")
+
+        all_options = []
+        all_symbol_info = []
+        exclude_exchanges = OPTION_FILTER_CONFIG['exclude_exchanges']
+
+        # 遍历每个标的，获取对应的期权
+        for i, underlying in enumerate(self.live_symbols):
+            try:
+                # 直接按标的查询期权
+                option_list = await asyncio.wait_for(
+                    self.api.query_quotes(underlying_symbol=underlying, expired=False),
+                    timeout=30
+                )
+
+                if not option_list:
+                    continue
+
+                # 过滤股票期权
+                for symbol in option_list:
+                    exchange = symbol.split('.')[0]
+                    if exchange not in exclude_exchanges:
+                        all_options.append(symbol)
+
+                # 进度日志
+                if (i + 1) % 20 == 0 or (i + 1) == len(self.live_symbols):
+                    self.logger.info(f"已处理 {i + 1}/{len(self.live_symbols)} 个标的，累计期权 {len(all_options)} 个")
+
+            except asyncio.TimeoutError:
+                self.logger.warning(f"获取标的 {underlying} 的期权超时")
+            except Exception as e:
+                self.logger.warning(f"获取标的 {underlying} 的期权失败: {e}")
+
+        # 去重
+        all_options = sorted(list(set(all_options)))
+        self.logger.info(f"获取到 {len(all_options)} 个期权合约")
+
+        if not all_options:
+            self.logger.warning("未获取到任何期权合约")
+            return []
+
+        # 获取合约详细信息
+        self.logger.info("正在获取期权合约详细信息...")
+        batch_size = 500
+        for i in range(0, len(all_options), batch_size):
+            batch = all_options[i:i + batch_size]
+            try:
+                batch_df = await asyncio.wait_for(
+                    self.api.query_symbol_info(batch), 60
+                )
+                if not batch_df.empty:
+                    all_symbol_info.append(batch_df)
+                self.logger.info(f"已获取 {min(i + batch_size, len(all_options))}/{len(all_options)} 个合约信息")
+            except Exception as e:
+                self.logger.warning(f"获取批次 {i}-{i+batch_size} 失败: {e}")
+
+        if not all_symbol_info:
+            self.logger.warning("未能获取合约信息")
+            return all_options
+
+        # 合并并保存到 Excel
+        symbol_info_df = pd.concat(all_symbol_info)
+        output_path = self._get_output_path(self.SYMBOL_EXCEL_FILE)
+        self.logger.info(f"正在按产品分类导出到 {output_path}...")
+        self._save_symbols_by_product(symbol_info_df, output_path)
+
+        return all_options
+
+    async def _get_all_options_full(self) -> List[str]:
+        """
+        获取全市场期权合约（完整模式，无过滤）。
+
+        Returns:
+            过滤后的期权合约列表。
+        """
+        self.logger.info("开始获取所有期权合约...")
+
+        # 获取所有期权合约
+        option_list = await self.api.query_quotes(ins_class='OPTION', expired=False)
+
+        # 过滤掉股票期权（只保留商品期权和股指期权）
+        filtered_options = []
+        for symbol in option_list:
+            exchange = symbol.split('.')[0]
+            if exchange not in OPTION_FILTER_CONFIG['exclude_exchanges']:
+                filtered_options.append(symbol)
+
+        filtered_options = sorted(filtered_options)
+        self.logger.info(f"获取到 {len(filtered_options)} 个期权合约（已过滤股票期权）")
+
+        if not filtered_options:
+            self.logger.warning("未获取到任何期权合约")
+            return []
+
+        # 获取合约详细信息
+        self.logger.info(f"正在获取 {len(filtered_options)} 个合约的详细信息...")
+        batch_size = 500
+        all_symbol_info = []
+        for i in range(0, len(filtered_options), batch_size):
+            batch = filtered_options[i:i + batch_size]
+            try:
+                batch_df = await asyncio.wait_for(
+                    self.api.query_symbol_info(batch), 60
+                )
+                if not batch_df.empty:
+                    all_symbol_info.append(batch_df)
+                self.logger.info(
+                    f"已获取 {min(i + batch_size, len(filtered_options))}/"
+                    f"{len(filtered_options)} 个合约信息"
+                )
+            except Exception as e:
+                self.logger.warning(f"获取批次 {i}-{i+batch_size} 失败: {e}")
+
+        if not all_symbol_info:
+            self.logger.warning("未能获取到任何合约信息")
+            return filtered_options
+
+        symbol_info_df = pd.concat(all_symbol_info)
+
+        # 按产品分组并保存到 Excel
+        if not symbol_info_df.empty:
+            output_path = self._get_output_path(self.SYMBOL_EXCEL_FILE)
+            self.logger.info(f"正在按产品分类导出到 {output_path}...")
+            self._save_symbols_by_product(symbol_info_df, output_path)
+
+        return filtered_options
 
     def _save_symbols_by_product(self, symbol_info_df: pd.DataFrame, output_path: Path):
         """

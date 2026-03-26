@@ -93,7 +93,9 @@ python3 -m cli.oneclick
 | `wisecoin-期权品种.xlsx` | 期权品种汇总 | Summary + 各品种Sheet |
 | `wisecoin-期货K线.xlsx` | 期货日K线数据 | Summary + 各合约Sheet (250根K线) |
 | `wisecoin-openctp数据.xlsx` | OpenCTP补充数据 | 多Sheet |
-| `wisecoin-symbol-live.json` | 实时监控标的配置 | 标的合约列表 (JSON数组) |
+| `wisecoin-symbol-live.json` | 实时监控标的配置 | 标的合约列表 (JSON数组)，用于过滤期权数据 |
+
+> **提示**: 当存在 `wisecoin-symbol-live.json` 时，`data.option_quotes` 模块会自动读取该配置，只获取配置中指定的标的合约的期权数据，大幅降低数据获取开销。
 
 ### 3.2 分析文件
 
@@ -335,10 +337,12 @@ python3 -m cli.futures_analyzer
 - 优化 `common/config.py` 支持从配置文件加载账号
 - 优化 `data/tqsdk_client.py` 移除硬编码账号，从 Config 读取
 - 优化 `data/openctp.py` 自动创建 symbol-params.json，路径统一到项目根目录
+- 优化 `data/option_quotes.py` 支持 wisecoin-symbol-live.json 过滤标的，降低数据获取开销
+- 优化 `cli/live_gui.py` 刷新数据按钮调用 oneclick 模块，保证数据处理一致性
 - 优化 `cli/live_gui.py` 路径处理，移除冗余备份逻辑
 - 优化 `data/backup.py` 自动清理，最多保留10个备份
 - 修复 `data/backup.py` 递归复制问题
-- 修复 `data/live_symbol.py` 日志导入错误
+- 修复 `data/live_symbol.py` 日志导入错误，兼容多种列名
 - 测试状态: 310 passed, 7 failed, 3 errors
 
 ---
