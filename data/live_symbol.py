@@ -20,9 +20,9 @@ import pandas as pd
 PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from common.logger import get_logger
+from common.logger import StructuredLogger
 
-logger = get_logger(__name__)
+logger = StructuredLogger("live_symbol")
 
 
 class LiveSymbolGenerator:
@@ -89,16 +89,32 @@ class LiveSymbolGenerator:
             logger.warning(f"分页 {self.sheet_name} 为空")
             return []
 
-        # 检查必要列
-        required_cols = ["标的合约", "期权沉淀(亿)", "期货沉淀(亿)"]
-        missing_cols = [col for col in required_cols if col not in df.columns]
-        if missing_cols:
-            logger.error(f"缺失必要的列: {missing_cols}")
-            return []
+        # 检查必要列 - 支持多种列名
+        # 优先使用分列，回退使用合并列
+        if "期权沉淀(亿)" in df.columns and "期货沉淀(亿)" in df.columns:
+            df['期权沉淀(亿)'] = pd.to_numeric(df['期权沉淀(亿)'], errors='coerce')
+            df['期货沉淀(亿)'] = pd.to_numeric(df['期货沉淀(亿)'], errors='coerce')
+        elif "沉淀资金(亿)" in df.columns:
+            # 回退：使用合并的沉淀资金列
+            logger.info("使用 '沉淀资金(亿)' 列进行筛选")
+            df['期权沉淀(亿)'] = pd.to_numeric(df['沉淀资金(亿)'], errors='coerce')
+            df['期货沉淀(亿)'] = 0  # 设为0，仅使用沉淀资金筛选
+        else:
+            # 检查是否有其他可能的列名
+            possible_oi_cols = ['沉淀资金(亿)', '沉淀资金', 'OpenInterest']
+            found_col = None
+            for col in possible_oi_cols:
+                if col in df.columns:
+                    found_col = col
+                    break
 
-        # 数值转换
-        df['期权沉淀(亿)'] = pd.to_numeric(df['期权沉淀(亿)'], errors='coerce')
-        df['期货沉淀(亿)'] = pd.to_numeric(df['期货沉淀(亿)'], errors='coerce')
+            if found_col:
+                logger.info(f"使用 '{found_col}' 列进行筛选")
+                df['期权沉淀(亿)'] = pd.to_numeric(df[found_col], errors='coerce')
+                df['期货沉淀(亿)'] = 0
+            else:
+                logger.error(f"缺失必要的列，可用列: {list(df.columns)}")
+                return []
 
         # 筛选条件: 期权沉淀 > min_option_oi OR 期货沉淀 > min_future_oi
         condition = (

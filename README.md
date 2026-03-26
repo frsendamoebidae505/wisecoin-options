@@ -101,8 +101,8 @@ python3 -m cli.oneclick
 |--------|------|--------|
 | `wisecoin-期权排行.xlsx` | 期权排行分析 | 期权排行、方向型期权、波动率型期权、期权PCR、期权痛点、期权资金 |
 | `wisecoin-期权参考.xlsx` | 期权参考(含IV/Greeks) | 期权参考 (52列全字段) |
-| `wisecoin-货权联动.xlsx` | 货权联动分析 | 货权联动、期货排行、期货涨跌、期货看多、期货看空、期货资金 |
-| `wisecoin-市场概览.xlsx` | 市场概览汇总 | 期货市场、期权市场、货权联动等14个工作表 |
+| `wisecoin-货权联动.xlsx` | 货权联动分析 | 期货市场、货权联动、期货品种、期货板块、期货排行、期货涨跌、期货看多、期货看空、期货资金 |
+| `wisecoin-市场概览.xlsx` | 市场概览汇总 | 期货市场、期权市场、货权联动、期货品种、期货板块等16个工作表 |
 
 ### 3.3 期权参考.xlsx 字段说明 (52列)
 
@@ -331,11 +331,14 @@ python3 -m cli.futures_analyzer
 - 新增 `run.command` macOS启动脚本（自动清理旧进程）
 - 新增 `data/live_symbol.py` 实时监控配置模块
 - 新增 `config.json` 账号配置文件（支持 TqAuth 和实盘账户）
+- 新增 `cli/futures_analyzer.py` 期货品种、期货板块分页
 - 优化 `common/config.py` 支持从配置文件加载账号
 - 优化 `data/tqsdk_client.py` 移除硬编码账号，从 Config 读取
+- 优化 `data/openctp.py` 自动创建 symbol-params.json，路径统一到项目根目录
 - 优化 `cli/live_gui.py` 路径处理，移除冗余备份逻辑
 - 优化 `data/backup.py` 自动清理，最多保留10个备份
 - 修复 `data/backup.py` 递归复制问题
+- 修复 `data/live_symbol.py` 日志导入错误
 - 测试状态: 310 passed, 7 failed, 3 errors
 
 ---

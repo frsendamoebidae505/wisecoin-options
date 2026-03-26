@@ -17,12 +17,17 @@ import re
 import shutil
 import time
 from collections import OrderedDict
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 
 import pandas as pd
 import requests
 
 from common.logger import StructuredLogger
+
+
+# 项目根目录
+PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 
 
 # 交易所名称映射
@@ -68,10 +73,10 @@ class OpenCTPClient:
 
     def __init__(
         self,
-        output_file: str = DEFAULT_OUTPUT_FILE,
-        symbol_params_file: str = DEFAULT_SYMBOL_PARAMS_FILE,
-        market_file_opt: str = DEFAULT_MARKET_FILE_OPT,
-        market_file_no_opt: str = DEFAULT_MARKET_FILE_NO_OPT,
+        output_file: str = None,
+        symbol_params_file: str = None,
+        market_file_opt: str = None,
+        market_file_no_opt: str = None,
         log_file: Optional[str] = None
     ):
         """
@@ -85,10 +90,11 @@ class OpenCTPClient:
             log_file: 日志文件路径（可选）。
         """
         self.logger = StructuredLogger("openctp", log_file=log_file)
-        self.output_file = output_file
-        self.symbol_params_file = symbol_params_file
-        self.market_file_opt = market_file_opt
-        self.market_file_no_opt = market_file_no_opt
+        # 默认使用项目根目录
+        self.output_file = output_file or str(PROJECT_ROOT / DEFAULT_OUTPUT_FILE)
+        self.symbol_params_file = symbol_params_file or str(PROJECT_ROOT / DEFAULT_SYMBOL_PARAMS_FILE)
+        self.market_file_opt = market_file_opt or str(PROJECT_ROOT / DEFAULT_MARKET_FILE_OPT)
+        self.market_file_no_opt = market_file_no_opt or str(PROJECT_ROOT / DEFAULT_MARKET_FILE_NO_OPT)
 
     def fetch_data(self, url: str, description: str) -> pd.DataFrame:
         """
@@ -265,15 +271,31 @@ class OpenCTPClient:
 
         # 3. 加载参数配置
         if not os.path.exists(self.symbol_params_file):
-            self.logger.warning(f"{self.symbol_params_file} not found.")
-            return False
-
-        try:
-            with open(self.symbol_params_file, 'r', encoding='utf-8') as f:
-                params = json.load(f)
-        except Exception as e:
-            self.logger.error(f"Failed to load params: {e}")
-            return False
+            self.logger.info(f"{self.symbol_params_file} not found, creating new file...")
+            # 创建空的配置结构
+            params = {
+                "_comment": "品种参数配置文件，由 data.openctp 模块自动生成和维护",
+                "CFFEX": {},
+                "CZCE": {},
+                "DCE": {},
+                "GFEX": {},
+                "INE": {},
+                "SHFE": {}
+            }
+            try:
+                with open(self.symbol_params_file, 'w', encoding='utf-8') as f:
+                    json.dump(params, f, indent=2, ensure_ascii=False)
+                self.logger.info(f"Created new {self.symbol_params_file}")
+            except Exception as e:
+                self.logger.error(f"Failed to create {self.symbol_params_file}: {e}")
+                return False
+        else:
+            try:
+                with open(self.symbol_params_file, 'r', encoding='utf-8') as f:
+                    params = json.load(f)
+            except Exception as e:
+                self.logger.error(f"Failed to load params: {e}")
+                return False
 
         # 扁平化参数以便查找：品种 -> (交易所, 配置)
         product_params = {}
@@ -573,16 +595,6 @@ class OpenCTPClient:
                         self.logger.error(f"Failed to write updates to {self.symbol_params_file}: {e}")
                 else:
                     self.logger.warning("No updates could be applied.")
-
-            # 拷贝到上级目录
-            if auto_update:
-                parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                target_path = os.path.join(parent_dir, os.path.basename(self.symbol_params_file))
-                try:
-                    shutil.copy2(self.symbol_params_file, target_path)
-                    self.logger.info(f"Copied {self.symbol_params_file} to parent directory: {target_path}")
-                except Exception as e:
-                    self.logger.error(f"Failed to copy {self.symbol_params_file} to parent directory: {e}")
 
         return True
 

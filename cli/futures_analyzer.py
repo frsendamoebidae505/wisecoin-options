@@ -62,6 +62,41 @@ DEFAULT_OPTION_REFERENCE_FILE = "wisecoin-期权参考.xlsx"
 DEFAULT_OUTPUT_FILE = "wisecoin-货权联动.xlsx"
 
 
+def _extract_category_name(categories_field):
+    """
+    从 categories 字段提取板块名称
+
+    Args:
+        categories_field: 可能是字符串、列表或None
+
+    Returns:
+        str: 板块名称，如 '农副'、'软商'、'能化' 等
+    """
+    if pd.isna(categories_field):
+        return '未分类'
+
+    try:
+        # 如果是字符串，尝试解析为JSON
+        if isinstance(categories_field, str):
+            import ast
+            categories_field = ast.literal_eval(categories_field)
+
+        # 如果是列表，取第一个元素
+        if isinstance(categories_field, list) and len(categories_field) > 0:
+            cat = categories_field[0]
+            if isinstance(cat, dict) and 'name' in cat:
+                return cat['name']
+
+        # 如果是字典
+        if isinstance(categories_field, dict) and 'name' in categories_field:
+            return categories_field['name']
+
+    except Exception:
+        pass
+
+    return '未分类'
+
+
 class FuturesAnalysisRunner:
     """
     期货期权联动分析执行器。
@@ -413,6 +448,10 @@ class FuturesAnalysisRunner:
                 # 策略建议
                 strategy = self._suggest_strategy(linkage_state, resonance_score)
 
+                # 期货沉淀和期权沉淀
+                fut_chendian = fut_row.get('沉淀资金(亿)', 0)
+                opt_chendian = opt_row.get('期权沉淀(亿)', 0) or opt_row.get('沉淀资金(亿)', 0)
+
                 correlation_analysis.append({
                     '标的合约': underlying,
                     '期货现价': fut_price,
@@ -429,7 +468,9 @@ class FuturesAnalysisRunner:
                     '共振评分': resonance_score,
                     '联动状态': linkage_state,
                     '策略建议': strategy,
-                    '沉淀资金(亿)': fut_row.get('沉淀资金(亿)', 0),
+                    '期货沉淀(亿)': round(fut_chendian, 4),
+                    '期权沉淀(亿)': round(opt_chendian, 4),
+                    '沉淀资金(亿)': round(fut_chendian, 4),
                 })
             except Exception as e:
                 logger.debug(f"分析联动时出错: {e}")
@@ -625,10 +666,219 @@ class FuturesAnalysisRunner:
 
         return pd.DataFrame(summary_data)
 
+    def _generate_product_analysis(
+        self,
+        futures_df: pd.DataFrame,
+        correlation_df: pd.DataFrame,
+        futures_raw_df: pd.DataFrame
+    ) -> Dict[str, pd.DataFrame]:
+        """
+        按期货品种维度生成汇总分析。
+
+        Args:
+            futures_df: 期货分析结果
+            correlation_df: 货权联动分析结果
+            futures_raw_df: 原始期货行情数据
+
+        Returns:
+            {'期货品种': DataFrame}
+        """
+        product_sheets = {}
+
+        try:
+            # 从原始期货数据中提取 product_id
+            if 'product_id' not in futures_df.columns:
+                if 'product_id' in futures_raw_df.columns:
+                    product_map = {}
+                    for _, row in futures_raw_df.iterrows():
+                        symbol = row.get('instrument_id') or row.get('symbol', '')
+                        product_id = row.get('product_id', '')
+                        if symbol and product_id:
+                            product_map[symbol] = product_id
+                    futures_df['product_id'] = futures_df['合约'].map(product_map)
+                else:
+                    # 从合约代码提取品种
+                    futures_df['product_id'] = futures_df['品种代码']
+
+            # 按 product_id 分组统计
+            product_data = []
+            grouped = futures_df.groupby('product_id')
+
+            for product_id, group in grouped:
+                if pd.isna(product_id) or product_id == '':
+                    continue
+
+                product_summary = {
+                    '品种代码': product_id,
+                    '合约数量': len(group),
+                    '沉淀资金(亿)': round(group['沉淀资金(亿)'].sum(), 4),
+                    '成交资金(亿)': round(group['成交资金(亿)'].sum(), 4),
+                    '平均杠杆涨跌%': round(group['杠杆涨跌%'].mean(), 2),
+                    '最大杠杆涨跌%': round(group['杠杆涨跌%'].max(), 2),
+                    '最小杠杆涨跌%': round(group['杠杆涨跌%'].min(), 2),
+                    '总持仓量': int(group['持仓量'].sum()),
+                    '总成交量': int(group['成交量'].sum()),
+                    '看多合约数': len(group[group['流向信号'] > 0]),
+                    '看空合约数': len(group[group['流向信号'] < 0]),
+                    '中性合约数': len(group[group['流向信号'] == 0]),
+                }
+
+                # 品种情绪判断
+                if product_summary['合约数量'] > 0:
+                    bullish_ratio = product_summary['看多合约数'] / product_summary['合约数量']
+                    if bullish_ratio >= 0.6:
+                        product_summary['品种情绪'] = '偏多'
+                    elif bullish_ratio <= 0.4:
+                        product_summary['品种情绪'] = '偏空'
+                    else:
+                        product_summary['品种情绪'] = '中性'
+
+                # 检查是否有期权联动数据
+                if not correlation_df.empty and '标的合约' in correlation_df.columns:
+                    product_corr = correlation_df[correlation_df['标的合约'].str.contains(product_id, na=False, case=False)]
+                    if not product_corr.empty:
+                        product_summary['有期权联动'] = '是'
+                        product_summary['期权PCR均值'] = round(product_corr['期权PCR'].mean(), 4)
+                        if '最大痛点' in product_corr.columns:
+                            product_summary['期权痛点均值'] = round(product_corr['最大痛点'].mean(), 2)
+                        if '共振评分' in product_corr.columns:
+                            product_summary['共振评分均值'] = round(product_corr['共振评分'].mean(), 2)
+                    else:
+                        product_summary['有期权联动'] = '否'
+
+                product_data.append(product_summary)
+
+            if product_data:
+                product_df = pd.DataFrame(product_data)
+                product_df = product_df.sort_values(
+                    by=['沉淀资金(亿)', '成交资金(亿)'],
+                    ascending=False
+                ).reset_index(drop=True)
+                product_df.insert(0, '排名', range(1, len(product_df) + 1))
+                product_sheets['期货品种'] = product_df
+                logger.info(f"生成品种维度汇总: {len(product_df)} 个品种")
+
+        except Exception as e:
+            logger.error(f"生成品种维度分析失败: {e}")
+
+        return product_sheets
+
+    def _generate_sector_analysis(
+        self,
+        futures_df: pd.DataFrame,
+        correlation_df: pd.DataFrame,
+        futures_raw_df: pd.DataFrame
+    ) -> Dict[str, pd.DataFrame]:
+        """
+        按期货板块维度生成汇总分析。
+
+        Args:
+            futures_df: 期货分析结果
+            correlation_df: 货权联动分析结果
+            futures_raw_df: 原始期货行情数据
+
+        Returns:
+            {'期货板块': DataFrame}
+        """
+        sector_sheets = {}
+
+        try:
+            # 从原始期货数据中提取 categories
+            if 'categories' not in futures_raw_df.columns:
+                logger.warning("未找到 categories 字段，跳过板块维度分析")
+                return sector_sheets
+
+            # 建立合约到板块的映射
+            sector_map = {}
+            for _, row in futures_raw_df.iterrows():
+                symbol = row.get('instrument_id') or row.get('symbol', '')
+                categories = row.get('categories')
+                if symbol:
+                    sector_name = _extract_category_name(categories)
+                    sector_map[symbol] = sector_name
+
+            # 添加板块列
+            futures_df['板块'] = futures_df['合约'].map(sector_map)
+
+            # 按板块分组统计
+            sector_data = []
+            grouped = futures_df.groupby('板块')
+            total_capital = futures_df['沉淀资金(亿)'].sum()
+
+            for sector_name, group in grouped:
+                if pd.isna(sector_name) or sector_name == '未分类':
+                    continue
+
+                sector_capital = group['沉淀资金(亿)'].sum()
+
+                sector_summary = {
+                    '板块名称': sector_name,
+                    '品种数量': group['品种代码'].nunique(),
+                    '合约数量': len(group),
+                    '沉淀资金(亿)': round(sector_capital, 4),
+                    '成交资金(亿)': round(group['成交资金(亿)'].sum(), 4),
+                    '资金占比%': round(sector_capital / total_capital * 100, 2) if total_capital > 0 else 0,
+                    '平均杠杆涨跌%': round(group['杠杆涨跌%'].mean(), 2),
+                    '最大杠杆涨跌%': round(group['杠杆涨跌%'].max(), 2),
+                    '最小杠杆涨跌%': round(group['杠杆涨跌%'].min(), 2),
+                    '总持仓量': int(group['持仓量'].sum()),
+                    '总成交量': int(group['成交量'].sum()),
+                    '看多合约数': len(group[group['流向信号'] > 0]),
+                    '看空合约数': len(group[group['流向信号'] < 0]),
+                    '中性合约数': len(group[group['流向信号'] == 0]),
+                }
+
+                # 板块情绪判断
+                if sector_summary['合约数量'] > 0:
+                    bullish_ratio = sector_summary['看多合约数'] / sector_summary['合约数量']
+                    if bullish_ratio >= 0.6:
+                        sector_summary['板块情绪'] = '偏多'
+                    elif bullish_ratio <= 0.4:
+                        sector_summary['板块情绪'] = '偏空'
+                    else:
+                        sector_summary['板块情绪'] = '中性'
+
+                # 板块内品种排行
+                product_ranking = group.groupby('品种代码').agg({
+                    '沉淀资金(亿)': 'sum',
+                    '成交资金(亿)': 'sum',
+                    '杠杆涨跌%': 'mean',
+                    '持仓量': 'sum',
+                    '成交量': 'sum',
+                    '流向信号': lambda x: (x > 0).sum() - (x < 0).sum()
+                }).reset_index()
+
+                product_ranking.columns = ['品种代码', '沉淀资金(亿)', '成交资金(亿)',
+                                           '平均杠杆涨跌%', '总持仓量', '总成交量', '多空信号']
+                product_ranking = product_ranking.sort_values('沉淀资金(亿)', ascending=False)
+
+                # TOP3品种
+                top3_products = product_ranking.head(3)['品种代码'].tolist()
+                sector_summary['品种TOP3'] = ' | '.join(top3_products)
+
+                # 所有品种
+                all_products = product_ranking['品种代码'].tolist()
+                sector_summary['品种'] = ' / '.join(all_products)
+
+                sector_data.append(sector_summary)
+
+            if sector_data:
+                sector_df = pd.DataFrame(sector_data)
+                sector_df = sector_df.sort_values('沉淀资金(亿)', ascending=False).reset_index(drop=True)
+                sector_df.insert(0, '排名', range(1, len(sector_df) + 1))
+                sector_sheets['期货板块'] = sector_df
+                logger.info(f"生成板块维度汇总: {len(sector_df)} 个板块")
+
+        except Exception as e:
+            logger.error(f"生成板块维度分析失败: {e}")
+
+        return sector_sheets
+
     def generate_reports(
         self,
         futures_df: pd.DataFrame,
-        correlation_df: pd.DataFrame
+        correlation_df: pd.DataFrame,
+        futures_raw_df: pd.DataFrame = None
     ) -> Dict[str, pd.DataFrame]:
         """
         生成多维度分析报告。
@@ -636,6 +886,7 @@ class FuturesAnalysisRunner:
         Args:
             futures_df: 期货分析结果
             correlation_df: 货权联动分析结果
+            futures_raw_df: 原始期货行情数据（用于提取品种和板块信息）
 
         Returns:
             各分页的 DataFrame 字典
@@ -651,9 +902,25 @@ class FuturesAnalysisRunner:
         if not correlation_df.empty:
             corr_sorted = correlation_df.sort_values('沉淀资金(亿)', ascending=False).reset_index(drop=True)
             corr_sorted.insert(0, '排名', range(1, len(corr_sorted) + 1))
+            # 添加沉淀资金合计列
+            if '期货沉淀(亿)' in corr_sorted.columns and '期权沉淀(亿)' in corr_sorted.columns:
+                corr_sorted['沉淀资金合计(亿)'] = corr_sorted['期货沉淀(亿)'] + corr_sorted['期权沉淀(亿)']
+            elif '沉淀资金(亿)' in corr_sorted.columns:
+                # 从期货数据补充期权沉淀
+                corr_sorted['沉淀资金合计(亿)'] = corr_sorted['沉淀资金(亿)']
             sheets['货权联动'] = corr_sorted
 
-        # 2. 期货排行
+        # 2. 期货品种维度分析
+        if not futures_df.empty and futures_raw_df is not None:
+            product_sheets = self._generate_product_analysis(futures_df, correlation_df, futures_raw_df)
+            sheets.update(product_sheets)
+
+        # 3. 期货板块维度分析
+        if not futures_df.empty and futures_raw_df is not None:
+            sector_sheets = self._generate_sector_analysis(futures_df, correlation_df, futures_raw_df)
+            sheets.update(sector_sheets)
+
+        # 4. 期货排行
         if not futures_df.empty:
             fut_comprehensive = futures_df.copy()
             fut_comprehensive['综合评分'] = (
@@ -781,7 +1048,7 @@ class FuturesAnalysisRunner:
             logger.info(f"完成 {len(correlation_df)} 个货权联动分析")
 
         # 5. 生成报告
-        sheets = self.generate_reports(futures_df, correlation_df)
+        sheets = self.generate_reports(futures_df, correlation_df, futures_raw_df)
 
         # 6. 保存到 Excel
         success = self.save_to_excel(sheets, self.output_file)
@@ -815,9 +1082,9 @@ class FuturesAnalysisRunner:
 
         # 工作表顺序
         sheet_order = [
-            '期货市场', '期权市场', '货权联动', '期货排行', '期权排行',
-            '期货涨跌', '期权PCR', '期权痛点', '期货看多', '期货看空',
-            '期货资金', '期权资金', '方向型期权', '波动率型期权'
+            '期货市场', '期权市场', '货权联动', '期货品种', '期货板块',
+            '期货排行', '期权排行', '期货涨跌', '期权PCR', '期权痛点',
+            '期货看多', '期货看空', '期货资金', '期权资金', '方向型期权', '波动率型期权'
         ]
 
         if not OPENPYXL_AVAILABLE:

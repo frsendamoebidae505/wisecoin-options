@@ -37,15 +37,15 @@ MODULES_TO_RUN = [
         'description': '备份当前数据到 backups/ 目录',
     },
     {
+        'name': 'OpenCTP数据获取',
+        'module': 'data.openctp',
+        'description': '通过OpenCTP接口获取期权行情数据',
+    },
+    {
         'name': '期权行情获取',
         'module': 'data.option_quotes',
         'description': '获取期权合约列表、行情数据并导出Excel',
         'completion_signal': '期权行情数据获取完成',  # 完成标志
-    },
-    {
-        'name': 'OpenCTP数据获取',
-        'module': 'data.openctp',
-        'description': '通过OpenCTP接口获取期权行情数据',
     },
     {
         'name': '期权综合分析',
