@@ -63,7 +63,8 @@ except ImportError:
 logger = StructuredLogger("option_analyzer")
 
 # 默认文件路径
-DEFAULT_OPTION_QUOTE_FILE = "wisecoin-期权行情.xlsx"
+DEFAULT_OPTION_QUOTE_FILE = "wisecoin-期权行情.csv"  # 改用CSV格式
+DEFAULT_OPTION_QUOTE_FILE_XLSX = "wisecoin-期权行情.xlsx"  # 兼容旧格式
 DEFAULT_FUTURE_QUOTE_FILE = "wisecoin-期货行情.xlsx"
 DEFAULT_PARAM_FILE = "wisecoin-symbol-params.json"
 DEFAULT_OUTPUT_FILE = "wisecoin-期权排行.xlsx"
@@ -89,12 +90,23 @@ class OptionAnalysisRunner:
         初始化分析执行器。
 
         Args:
-            option_quote_file: 期权行情文件路径
+            option_quote_file: 期权行情文件路径（支持CSV和XLSX格式）
             future_quote_file: 期货行情文件路径
             param_file: 品种参数文件路径
             output_file: 排行输出文件路径
             reference_file: 参考数据输出文件路径
         """
+        # 自动检测文件格式（优先CSV）
+        if not os.path.exists(option_quote_file):
+            if option_quote_file.endswith('.csv'):
+                xlsx_file = option_quote_file.replace('.csv', '.xlsx')
+                if os.path.exists(xlsx_file):
+                    option_quote_file = xlsx_file
+            elif option_quote_file.endswith('.xlsx'):
+                csv_file = option_quote_file.replace('.xlsx', '.csv')
+                if os.path.exists(csv_file):
+                    option_quote_file = csv_file
+
         self.option_quote_file = option_quote_file
         self.future_quote_file = future_quote_file
         self.param_file = param_file
@@ -258,29 +270,53 @@ class OptionAnalysisRunner:
             return False
 
     def _load_option_data(self) -> pd.DataFrame:
-        """加载期权行情数据"""
-        if not os.path.exists(self.option_quote_file):
+        """加载期权行情数据（支持CSV和XLSX格式）"""
+        # 优先检查CSV格式，兼容旧版XLSX格式
+        option_file = self.option_quote_file
+        if not os.path.exists(option_file):
+            if option_file.endswith('.csv'):
+                # 尝试XLSX格式
+                xlsx_file = option_file.replace('.csv', '.xlsx')
+                if os.path.exists(xlsx_file):
+                    option_file = xlsx_file
+            elif option_file.endswith('.xlsx'):
+                # 尝试CSV格式
+                csv_file = option_file.replace('.xlsx', '.csv')
+                if os.path.exists(csv_file):
+                    option_file = csv_file
+
+        if not os.path.exists(option_file):
             logger.error(f"期权行情文件不存在: {self.option_quote_file}")
             return pd.DataFrame()
 
         try:
-            xls = pd.ExcelFile(self.option_quote_file)
             all_data = []
 
-            for sheet_name in xls.sheet_names:
-                if sheet_name in ["Summary", "Progress", "Summary_Stats"]:
-                    continue
-                df = pd.read_excel(xls, sheet_name=sheet_name)
-                if df.empty:
-                    continue
-                df['_sheet'] = sheet_name
-                all_data.append(df)
+            if option_file.endswith('.csv'):
+                # CSV格式：直接读取单个文件
+                df = pd.read_csv(option_file)
+                if not df.empty:
+                    # 如果有_sheet列，保留；否则添加默认值
+                    if '_sheet' not in df.columns:
+                        df['_sheet'] = 'All'
+                    all_data.append(df)
+            else:
+                # XLSX格式：读取多个sheet
+                xls = pd.ExcelFile(option_file)
+                for sheet_name in xls.sheet_names:
+                    if sheet_name in ["Summary", "Progress", "Summary_Stats"]:
+                        continue
+                    df = pd.read_excel(xls, sheet_name=sheet_name)
+                    if df.empty:
+                        continue
+                    df['_sheet'] = sheet_name
+                    all_data.append(df)
 
             if not all_data:
                 return pd.DataFrame()
 
             options_df = pd.concat(all_data, ignore_index=True)
-            logger.info(f"共加载 {len(options_df)} 个期权合约")
+            logger.info(f"共加载 {len(options_df)} 个期权合约 (从 {option_file})")
             return options_df
         except Exception as e:
             logger.error(f"加载期权行情失败: {e}")

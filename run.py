@@ -26,15 +26,74 @@ PROJECT_ROOT = Path(__file__).parent.resolve()
 sys.path.insert(0, str(PROJECT_ROOT))
 
 
-# 必需的 xlsx 文件列表
-REQUIRED_XLSX_FILES = [
-    "wisecoin-期权行情.xlsx",
+# 必需的数据文件列表（CSV格式优先）
+REQUIRED_DATA_FILES = [
+    "wisecoin-期权行情.csv",  # 优先使用CSV格式
     "wisecoin-期权排行.xlsx",
     "wisecoin-期权参考.xlsx",
     "wisecoin-货权联动.xlsx",
     "wisecoin-市场概览.xlsx",
-    "wisecoin-期货K线.xlsx",
+    "wisecoin-期货K线.csv",   # 优先使用CSV格式
 ]
+
+# 兼容旧版XLSX格式
+REQUIRED_XLSX_FILES = [
+    "wisecoin-期权行情.xlsx",  # 兼容旧格式
+    "wisecoin-期权排行.xlsx",
+    "wisecoin-期权参考.xlsx",
+    "wisecoin-货权联动.xlsx",
+    "wisecoin-市场概览.xlsx",
+    "wisecoin-期货K线.xlsx",  # 兼容旧格式
+]
+
+
+def check_data_files() -> tuple:
+    """
+    检查必需的数据文件是否存在（支持CSV和XLSX格式）。
+
+    Returns:
+        (存在数量, 缺失文件列表)
+    """
+    missing = []
+    found = 0
+
+    # 检查期权行情文件（优先CSV）
+    csv_file = "wisecoin-期权行情.csv"
+    xlsx_file = "wisecoin-期权行情.xlsx"
+
+    if (PROJECT_ROOT / csv_file).exists():
+        found += 1
+    elif (PROJECT_ROOT / xlsx_file).exists():
+        found += 1
+    else:
+        missing.append(f"{csv_file} 或 {xlsx_file}")
+
+    # 检查期货K线文件（优先CSV）
+    csv_file = "wisecoin-期货K线.csv"
+    xlsx_file = "wisecoin-期货K线.xlsx"
+
+    if (PROJECT_ROOT / csv_file).exists():
+        found += 1
+    elif (PROJECT_ROOT / xlsx_file).exists():
+        found += 1
+    else:
+        missing.append(f"{csv_file} 或 {xlsx_file}")
+
+    # 检查其他必需文件
+    other_files = [
+        "wisecoin-期权排行.xlsx",
+        "wisecoin-期权参考.xlsx",
+        "wisecoin-货权联动.xlsx",
+        "wisecoin-市场概览.xlsx",
+    ]
+
+    for f in other_files:
+        if (PROJECT_ROOT / f).exists():
+            found += 1
+        else:
+            missing.append(f)
+
+    return found, missing
 
 
 def check_xlsx_files() -> tuple:
@@ -142,9 +201,9 @@ def main():
     print("WiseCoin 期权分析系统")
     print("=" * 60)
 
-    # 检查数据文件
-    existing_count, missing_files = check_xlsx_files()
-    total_count = len(REQUIRED_XLSX_FILES)
+    # 检查数据文件（支持CSV和XLSX格式）
+    existing_count, missing_files = check_data_files()
+    total_count = 6  # 总共6个必需文件
 
     print(f"\n📊 数据文件检查: {existing_count}/{total_count} 个文件存在")
 
@@ -170,7 +229,7 @@ def main():
         print(f"\n✅ 数据生成完成 (耗时 {elapsed:.1f}s)")
 
         # 再次检查
-        existing_count, missing_files = check_xlsx_files()
+        existing_count, missing_files = check_data_files()
         if missing_files:
             print(f"\n⚠️ 仍有 {len(missing_files)} 个文件缺失")
             for f in missing_files:

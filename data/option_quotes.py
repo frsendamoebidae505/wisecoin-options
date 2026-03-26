@@ -71,7 +71,8 @@ class OptionQuotesManager:
 
     # 默认文件名
     SYMBOL_EXCEL_FILE = "wisecoin-期权品种.xlsx"
-    QUOTE_EXCEL_FILE = "wisecoin-期权行情.xlsx"
+    QUOTE_CSV_FILE = "wisecoin-期权行情.csv"  # 改用CSV格式，提升读写效率
+    QUOTE_EXCEL_FILE = "wisecoin-期权行情.xlsx"  # 保留旧格式兼容
     FUTURES_EXCEL_FILE = "wisecoin-期货行情.xlsx"
     FUTURES_NO_OPTION_EXCEL_FILE = "wisecoin-期货行情-无期权.xlsx"
     SYMBOL_LIVE_FILE = "wisecoin-symbol-live.json"
@@ -82,7 +83,7 @@ class OptionQuotesManager:
         config: Optional[Config] = None,
         logger: Optional[StructuredLogger] = None,
         output_dir: Optional[str] = None,
-        use_live_symbol: bool = True,
+        use_live_symbol: bool = False,
     ):
         """
         初始化期权行情管理器。
@@ -385,7 +386,8 @@ class OptionQuotesManager:
         """
         try:
             symbol_file = self._get_output_path(self.SYMBOL_EXCEL_FILE)
-            quote_file = self._get_output_path(self.QUOTE_EXCEL_FILE)
+            quote_file = self._get_output_path(self.QUOTE_CSV_FILE)  # 使用CSV格式
+            quote_file_xlsx = self._get_output_path(self.QUOTE_EXCEL_FILE)  # 兼容旧格式
 
             if not symbol_file.exists():
                 self.logger.error(f"未找到期权品种文件: {symbol_file}")
@@ -429,34 +431,61 @@ class OptionQuotesManager:
             all_quote_data: Dict[str, Any] = {}
             already_fetched_symbols: Set[str] = set()
 
+            # 优先读取CSV格式，兼容旧版XLSX格式
+            existing_file = None
             if quote_file.exists():
+                existing_file = quote_file
+            elif quote_file_xlsx.exists():
+                existing_file = quote_file_xlsx
+
+            if existing_file:
                 try:
-                    self.logger.info(f"检测到已存在的行情文件 {quote_file}，尝试加载断点...")
-                    existing_xls = pd.ExcelFile(str(quote_file))
-                    for s_name in existing_xls.sheet_names:
-                        if s_name in ["Summary", "Progress"]:
-                            continue
-                        existing_df = pd.read_excel(existing_xls, sheet_name=s_name)
-                        if existing_df.empty:
-                            continue
+                    self.logger.info(f"检测到已存在的行情文件 {existing_file}，尝试加载断点...")
 
-                        # 确定 symbol 列
-                        s_col = None
-                        if 'symbol' in existing_df.columns:
-                            s_col = 'symbol'
-                        elif 'instrument_id' in existing_df.columns:
-                            s_col = 'instrument_id'
+                    if str(existing_file).endswith('.csv'):
+                        # CSV格式：直接读取单个文件
+                        existing_df = pd.read_csv(str(existing_file))
+                        if not existing_df.empty:
+                            # 确定 symbol 列
+                            s_col = None
+                            if 'symbol' in existing_df.columns:
+                                s_col = 'symbol'
+                            elif 'instrument_id' in existing_df.columns:
+                                s_col = 'instrument_id'
 
-                        if not s_col:
-                            continue
+                            if s_col:
+                                for _, row in existing_df.iterrows():
+                                    sym = row[s_col]
+                                    if not pd.isna(row.get('last_price')):
+                                        all_quote_data[sym] = row.to_dict()
+                                        already_fetched_symbols.add(sym)
+                    else:
+                        # XLSX格式：读取多个sheet
+                        existing_xls = pd.ExcelFile(str(existing_file))
+                        for s_name in existing_xls.sheet_names:
+                            if s_name in ["Summary", "Progress"]:
+                                continue
+                            existing_df = pd.read_excel(existing_xls, sheet_name=s_name)
+                            if existing_df.empty:
+                                continue
 
-                        # 将已有数据加载到 all_quote_data
-                        for _, row in existing_df.iterrows():
-                            sym = row[s_col]
-                            # 只有当 last_price 有效才视为已获取
-                            if not pd.isna(row.get('last_price')):
-                                all_quote_data[sym] = row.to_dict()
-                                already_fetched_symbols.add(sym)
+                            # 确定 symbol 列
+                            s_col = None
+                            if 'symbol' in existing_df.columns:
+                                s_col = 'symbol'
+                            elif 'instrument_id' in existing_df.columns:
+                                s_col = 'instrument_id'
+
+                            if not s_col:
+                                continue
+
+                            # 将已有数据加载到 all_quote_data
+                            for _, row in existing_df.iterrows():
+                                sym = row[s_col]
+                                # 只有当 last_price 有效才视为已获取
+                                if not pd.isna(row.get('last_price')):
+                                    all_quote_data[sym] = row.to_dict()
+                                    already_fetched_symbols.add(sym)
 
                     self.logger.info(
                         f"成功恢复断点：已获取 {len(already_fetched_symbols)} 个合约，"
@@ -503,16 +532,16 @@ class OptionQuotesManager:
                         processed_new_count += 1
                         already_fetched_symbols.add(symbol)
 
-                        # 定期保存
+                        # 定期保存（使用CSV格式）
                         if processed_new_count % self.save_interval == 0:
-                            self._save_quotes_to_excel(
+                            self._save_quotes_to_csv(
                                 quote_file, sheet_df_map, all_quote_data,
                                 len(already_fetched_symbols), len(unique_symbols)
                             )
 
                         # 定期重建 api
                         if processed_new_count % self.api_rebuild_interval == 0:
-                            self._save_quotes_to_excel(
+                            self._save_quotes_to_csv(
                                 quote_file, sheet_df_map, all_quote_data,
                                 len(already_fetched_symbols), len(unique_symbols)
                             )
@@ -522,7 +551,7 @@ class OptionQuotesManager:
 
                     # 最后一批也进行保存
                     if i + self.batch_size >= len(symbols_to_fetch_now):
-                        self._save_quotes_to_excel(
+                        self._save_quotes_to_csv(
                             quote_file, sheet_df_map, all_quote_data,
                             len(already_fetched_symbols), len(unique_symbols)
                         )
@@ -543,6 +572,64 @@ class OptionQuotesManager:
         except Exception as e:
             self.logger.error(f"获取期权行情异常: {e}")
             raise DataFetchError(f"获取期权行情异常: {e}") from e
+
+    def _save_quotes_to_csv(
+        self,
+        file_path: Path,
+        sheet_df_map: Dict[str, pd.DataFrame],
+        all_quote_data: Dict[str, Any],
+        current_count: int,
+        total_count: int
+    ):
+        """
+        内部辅助函数：将已获取的行情保存到 CSV（高效格式）。
+
+        Args:
+            file_path: 输出文件路径。
+            sheet_df_map: 原始 Sheet 数据映射。
+            all_quote_data: 已获取的行情数据。
+            current_count: 当前已获取数量。
+            total_count: 总数量。
+        """
+        try:
+            self.logger.info(f"  [保存进度] 正在更新 CSV 数据 ({current_count}/{total_count})...")
+
+            all_rows = []
+            for sheet_name, df in sheet_df_map.items():
+                symbol_col = 'instrument_id' if 'instrument_id' in df.columns else 'symbol'
+                if symbol_col not in df.columns:
+                    continue
+
+                # 合并原始字段和行情字段 (仅包含已获取到的 symbol)
+                for _, row in df.iterrows():
+                    symbol = row[symbol_col]
+                    if symbol in all_quote_data:
+                        combined_data = row.to_dict()
+                        q_info = all_quote_data[symbol]
+                        combined_data.update(q_info)
+                        combined_data['_sheet'] = sheet_name  # 添加sheet标识列
+                        all_rows.append(combined_data)
+
+            if not all_rows:
+                return
+
+            final_df = pd.DataFrame(all_rows)
+
+            # 按照 underlying_symbol 、 strike_price 、 option_class 排序
+            sort_priority = ['underlying_symbol', 'strike_price', 'option_class', 'call_or_put']
+            available_sort_keys = [k for k in sort_priority if k in final_df.columns]
+
+            if available_sort_keys:
+                if 'strike_price' in final_df.columns:
+                    final_df['strike_price'] = pd.to_numeric(final_df['strike_price'], errors='coerce')
+                final_df = final_df.sort_values(available_sort_keys)
+
+            # 保存为CSV（高效格式）
+            final_df.to_csv(str(file_path), index=False, encoding='utf-8-sig')
+            self.logger.info(f"  已保存 {len(final_df)} 条记录到 {file_path}")
+
+        except Exception as e:
+            self.logger.error(f"保存 CSV 失败: {e}")
 
     def _save_quotes_to_excel(
         self,
@@ -627,41 +714,62 @@ class OptionQuotesManager:
         Raises:
             DataFetchError: 数据获取失败。
         """
-        quote_file = self._get_output_path(self.QUOTE_EXCEL_FILE)
-        futures_file = self._get_output_path(self.FUTURES_EXCEL_FILE)
+        # 优先读取CSV格式，兼容XLSX格式
+        quote_file_csv = self._get_output_path(self.QUOTE_CSV_FILE)
+        quote_file_xlsx = self._get_output_path(self.QUOTE_EXCEL_FILE)
 
-        if not quote_file.exists():
-            self.logger.warning(f"未找到期权行情文件: {quote_file}，无法获取期货行情。")
+        quote_file = None
+        if quote_file_csv.exists():
+            quote_file = quote_file_csv
+        elif quote_file_xlsx.exists():
+            quote_file = quote_file_xlsx
+
+        if not quote_file:
+            self.logger.warning(f"未找到期权行情文件，无法获取期货行情。")
             return pd.DataFrame()
+
+        futures_file = self._get_output_path(self.FUTURES_EXCEL_FILE)
 
         try:
             self.logger.info(f"正在读取 {quote_file} 以获取标的期货列表和字段模板...")
-            xls = pd.ExcelFile(str(quote_file))
             all_underlyings: Set[str] = set()
-
-            # 获取字段模板 (从第一个数据 Sheet 获取)
             template_columns = []
-            for sheet_name in xls.sheet_names:
-                if sheet_name in ["Summary", "Progress", "Summary_Stats"]:
-                    continue
-                df_temp = pd.read_excel(xls, sheet_name=sheet_name, nrows=0)
-                template_columns = df_temp.columns.tolist()
-                break
 
-            if not template_columns:
-                self.logger.error("未能从期权行情文件中提取到字段模板")
-                return pd.DataFrame()
+            if str(quote_file).endswith('.csv'):
+                # CSV格式：直接读取
+                df_all = pd.read_csv(str(quote_file))
+                if not df_all.empty:
+                    template_columns = df_all.columns.tolist()
+                    if 'underlying_symbol' in df_all.columns:
+                        symbols = df_all['underlying_symbol'].dropna().unique().tolist()
+                        for s in symbols:
+                            if s and isinstance(s, str) and '.' in s:
+                                all_underlyings.add(s)
+            else:
+                # XLSX格式：读取多个sheet
+                xls = pd.ExcelFile(str(quote_file))
+                # 获取字段模板 (从第一个数据 Sheet 获取)
+                for sheet_name in xls.sheet_names:
+                    if sheet_name in ["Summary", "Progress", "Summary_Stats"]:
+                        continue
+                    df_temp = pd.read_excel(xls, sheet_name=sheet_name, nrows=0)
+                    template_columns = df_temp.columns.tolist()
+                    break
 
-            # 遍历所有 Sheet 获取唯一的 underlying_symbol
-            for sheet_name in xls.sheet_names:
-                if sheet_name in ["Summary", "Progress", "Summary_Stats"]:
-                    continue
-                df = pd.read_excel(xls, sheet_name=sheet_name)
-                if 'underlying_symbol' in df.columns:
-                    symbols = df['underlying_symbol'].dropna().unique().tolist()
-                    for s in symbols:
-                        if s and isinstance(s, str) and '.' in s:
-                            all_underlyings.add(s)
+                if not template_columns:
+                    self.logger.error("未能从期权行情文件中提取到字段模板")
+                    return pd.DataFrame()
+
+                # 遍历所有 Sheet 获取唯一的 underlying_symbol
+                for sheet_name in xls.sheet_names:
+                    if sheet_name in ["Summary", "Progress", "Summary_Stats"]:
+                        continue
+                    df = pd.read_excel(xls, sheet_name=sheet_name)
+                    if 'underlying_symbol' in df.columns:
+                        symbols = df['underlying_symbol'].dropna().unique().tolist()
+                        for s in symbols:
+                            if s and isinstance(s, str) and '.' in s:
+                                all_underlyings.add(s)
 
             unique_underlyings = sorted(list(all_underlyings))
 
@@ -788,7 +896,11 @@ class OptionQuotesManager:
                     s_key = str(inst) if '.' in str(inst) else f"{exch}.{inst}"
 
             if s_key:
-                info_lookup[str(s_key).strip()] = row.to_dict()
+                s_key = str(s_key).strip()
+                info_dict = row.to_dict()
+                # 同时存储原始 key 和大写 key
+                info_lookup[s_key] = info_dict
+                info_lookup[s_key.upper()] = info_dict
 
         return info_lookup
 
@@ -814,12 +926,8 @@ class OptionQuotesManager:
         static_info = info_lookup.get(symbol)
 
         if static_info is None:
-            # 尝试不区分大小写匹配
-            sym_upper = symbol.upper()
-            for k, v in info_lookup.items():
-                if k.upper() == sym_upper:
-                    static_info = v
-                    break
+            # 尝试大写匹配（字典已预先存储大写key）
+            static_info = info_lookup.get(symbol.upper())
 
         if static_info is None:
             return None
@@ -925,12 +1033,21 @@ class OptionQuotesManager:
         Raises:
             DataFetchError: 数据获取失败。
         """
-        option_file = self._get_output_path(self.QUOTE_EXCEL_FILE)
+        # 优先读取CSV格式，兼容XLSX格式
+        option_file_csv = self._get_output_path(self.QUOTE_CSV_FILE)
+        option_file_xlsx = self._get_output_path(self.QUOTE_EXCEL_FILE)
+
+        option_file = None
+        if option_file_csv.exists():
+            option_file = option_file_csv
+        elif option_file_xlsx.exists():
+            option_file = option_file_xlsx
+
         target_file = self._get_output_path(self.FUTURES_NO_OPTION_EXCEL_FILE)
 
-        if not option_file.exists():
+        if not option_file:
             self.logger.warning(
-                f"未找到期权行情文件: {option_file}，"
+                f"未找到期权行情文件，"
                 f"无法过滤标的，将获取全市场期货。"
             )
             underlying_symbols = set()
@@ -940,26 +1057,39 @@ class OptionQuotesManager:
                 self.logger.info(
                     f"正在读取 {option_file} 以获取已有的期权标的列表..."
                 )
-                xls = pd.ExcelFile(str(option_file))
                 underlying_symbols: Set[str] = set()
 
-                # 获取字段模板
-                for sheet_name in xls.sheet_names:
-                    if sheet_name in ["Summary", "Progress", "Summary_Stats"]:
-                        continue
-                    df_temp = pd.read_excel(xls, sheet_name=sheet_name, nrows=0)
-                    template_columns = df_temp.columns.tolist()
-                    break
-
-                for sheet_name in xls.sheet_names:
-                    if sheet_name in ["Summary", "Progress", "Summary_Stats"]:
-                        continue
-                    df = pd.read_excel(xls, sheet_name=sheet_name)
-                    if 'underlying_symbol' in df.columns:
-                        symbols = df['underlying_symbol'].dropna().unique().tolist()
+                if str(option_file).endswith('.csv'):
+                    # CSV格式：直接读取
+                    df_all = pd.read_csv(str(option_file))
+                    template_columns = df_all.columns.tolist()
+                    if 'underlying_symbol' in df_all.columns:
+                        symbols = df_all['underlying_symbol'].dropna().unique().tolist()
                         for s in symbols:
                             if s and isinstance(s, str):
                                 underlying_symbols.add(s.strip())
+                else:
+                    # XLSX格式：读取多个sheet
+                    xls = pd.ExcelFile(str(option_file))
+                    template_columns = []
+
+                    # 获取字段模板
+                    for sheet_name in xls.sheet_names:
+                        if sheet_name in ["Summary", "Progress", "Summary_Stats"]:
+                            continue
+                        df_temp = pd.read_excel(xls, sheet_name=sheet_name, nrows=0)
+                        template_columns = df_temp.columns.tolist()
+                        break
+
+                    for sheet_name in xls.sheet_names:
+                        if sheet_name in ["Summary", "Progress", "Summary_Stats"]:
+                            continue
+                        df = pd.read_excel(xls, sheet_name=sheet_name)
+                        if 'underlying_symbol' in df.columns:
+                            symbols = df['underlying_symbol'].dropna().unique().tolist()
+                            for s in symbols:
+                                if s and isinstance(s, str):
+                                    underlying_symbols.add(s.strip())
 
                 self.logger.info(f"获取到 {len(underlying_symbols)} 个期权标的合约。")
             except Exception as e:
@@ -1007,8 +1137,21 @@ class OptionQuotesManager:
 
             full_info_df = pd.concat(all_symbol_info_dfs)
 
-            # 4. 获取实时行情 (Quote)
-            self.logger.info("开始同步行情数据 (分批订阅)...")
+            # 4. 获取实时行情 (Quote List) - 分批获取
+            futures_quotes = {}
+            for i in range(0, len(not_underlying_futures), self.batch_size):
+                batch = not_underlying_futures[i:i + self.batch_size]
+                try:
+                    quotes = await self.api.get_quote_list(batch)
+                    for q in quotes:
+                        futures_quotes[q._path[-1]] = q
+                    self.logger.info(
+                        f"已同步期货行情: "
+                        f"{min(i + self.batch_size, len(not_underlying_futures))}/"
+                        f"{len(not_underlying_futures)}"
+                    )
+                except Exception as e:
+                    self.logger.warning(f"获取期货行情批次 {i} 失败: {e}")
 
             futures_final_data = []
 
@@ -1029,55 +1172,14 @@ class OptionQuotesManager:
             for symbol in not_underlying_futures:
                 sym_str = str(symbol).strip()
                 try:
-                    static_info = info_lookup.get(sym_str)
-
-                    if static_info is None:
-                        # 尝试不区分大小写匹配
-                        sym_upper = sym_str.upper()
-                        for k, v in info_lookup.items():
-                            if k.upper() == sym_upper:
-                                static_info = v
-                                break
-
-                    if static_info is None:
-                        continue
-
-                    q = await self.api.get_quote(symbol)
-                    q_dict = dict(q)
-
-                    if pd.isna(q_dict.get('last_price')) or q_dict.get('last_price', 0) <= 0:
-                        if not pd.isna(q_dict.get('pre_close')):
-                            q_dict['last_price'] = q_dict['pre_close']
-
-                    combined = static_info.copy()
-                    combined.update(q_dict)
-
-                    # 增加 product 字段用于分组
-                    if '.' in sym_str:
-                        parts = sym_str.split('.')
-                        exchange = parts[0]
-                        code_match = re.match(r'^[a-zA-Z]+', parts[1])
-                        if code_match:
-                            combined['product'] = f"{exchange}.{code_match.group(0)}"
-                        else:
-                            combined['product'] = sym_str
-                    else:
-                        combined['product'] = "Unknown"
-
-                    # 对齐字段
-                    aligned_row = {}
-                    cols_to_use = (
-                        template_columns
-                        if (template_columns and len(template_columns) > 0)
-                        else list(combined.keys())
+                    row_data = self._process_future_symbol(
+                        symbol=sym_str,
+                        info_lookup=info_lookup,
+                        futures_quotes=futures_quotes,
+                        template_columns=template_columns
                     )
-                    for col in cols_to_use:
-                        aligned_row[col] = combined.get(col, np.nan)
-
-                    if 'product' not in aligned_row:
-                        aligned_row['product'] = combined['product']
-
-                    futures_final_data.append(aligned_row)
+                    if row_data:
+                        futures_final_data.append(row_data)
                 except Exception as e:
                     self.logger.debug(f"处理合约 {symbol} 数据失败: {e}")
 

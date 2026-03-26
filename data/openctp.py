@@ -96,6 +96,37 @@ class OpenCTPClient:
         self.market_file_opt = market_file_opt or str(PROJECT_ROOT / DEFAULT_MARKET_FILE_OPT)
         self.market_file_no_opt = market_file_no_opt or str(PROJECT_ROOT / DEFAULT_MARKET_FILE_NO_OPT)
 
+        # 确保 symbol_params_file 存在
+        self._ensure_symbol_params_file()
+
+    def _ensure_symbol_params_file(self):
+        """确保 symbol_params_file 存在，不存在则创建默认结构。"""
+        if not os.path.exists(self.symbol_params_file):
+            self.logger.info(f"Creating default {self.symbol_params_file}...")
+            from collections import OrderedDict
+            from datetime import datetime
+
+            params = OrderedDict([
+                ("_说明", "期货品种参数配置文件 - 由 data.openctp 模块自动生成和维护"),
+                ("_字段说明", OrderedDict([
+                    ("margin_ratio", "保证金率 (如 0.10 表示 10%)"),
+                    ("fee_ratio", "手续费率")
+                ])),
+                ("_更新日期", datetime.now().strftime("%Y-%m-%d")),
+                ("CFFEX", OrderedDict([("_交易所", "中国金融期货交易所")])),
+                ("CZCE", OrderedDict([("_交易所", "郑州商品交易所")])),
+                ("DCE", OrderedDict([("_交易所", "大连商品交易所")])),
+                ("GFEX", OrderedDict([("_交易所", "广州期货交易所")])),
+                ("INE", OrderedDict([("_交易所", "上海国际能源交易中心")])),
+                ("SHFE", OrderedDict([("_交易所", "上海期货交易所")])),
+            ])
+            try:
+                with open(self.symbol_params_file, 'w', encoding='utf-8') as f:
+                    json.dump(params, f, indent=2, ensure_ascii=False)
+                self.logger.info(f"Created {self.symbol_params_file}")
+            except Exception as e:
+                self.logger.error(f"Failed to create {self.symbol_params_file}: {e}")
+
     def fetch_data(self, url: str, description: str) -> pd.DataFrame:
         """
         从 OpenCTP API 获取数据。
@@ -269,33 +300,13 @@ class OpenCTPClient:
         # 获取产品名称列（如果存在）
         product_name_col = 'ProductName' if 'ProductName' in df_openctp.columns else None
 
-        # 3. 加载参数配置
-        if not os.path.exists(self.symbol_params_file):
-            self.logger.info(f"{self.symbol_params_file} not found, creating new file...")
-            # 创建空的配置结构
-            params = {
-                "_comment": "品种参数配置文件，由 data.openctp 模块自动生成和维护",
-                "CFFEX": {},
-                "CZCE": {},
-                "DCE": {},
-                "GFEX": {},
-                "INE": {},
-                "SHFE": {}
-            }
-            try:
-                with open(self.symbol_params_file, 'w', encoding='utf-8') as f:
-                    json.dump(params, f, indent=2, ensure_ascii=False)
-                self.logger.info(f"Created new {self.symbol_params_file}")
-            except Exception as e:
-                self.logger.error(f"Failed to create {self.symbol_params_file}: {e}")
-                return False
-        else:
-            try:
-                with open(self.symbol_params_file, 'r', encoding='utf-8') as f:
-                    params = json.load(f)
-            except Exception as e:
-                self.logger.error(f"Failed to load params: {e}")
-                return False
+        # 3. 加载参数配置（文件已在 __init__ 中确保存在）
+        try:
+            with open(self.symbol_params_file, 'r', encoding='utf-8') as f:
+                params = json.load(f)
+        except Exception as e:
+            self.logger.error(f"Failed to load params: {e}")
+            return False
 
         # 扁平化参数以便查找：品种 -> (交易所, 配置)
         product_params = {}

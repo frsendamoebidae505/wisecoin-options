@@ -382,7 +382,7 @@ class OptionTShapeWindow(QMainWindow):
     
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("WiseCoin 期权 [Live版]")
+        self.setWindowTitle("WiseCoin 期权")
         self.setGeometry(50, 50, 1800, 1000)
         
         # 数据存储
@@ -397,26 +397,30 @@ class OptionTShapeWindow(QMainWindow):
         self.project_root = Path(__file__).parent.parent.resolve()
         print(f"项目根目录: {self.project_root}")
 
-        # 自动刷新配置
-        self.refresh_interval = 180000 * 3 * 3  # 3分钟
+        # 自动刷新配置（默认关闭）
+        self.auto_refresh_enabled = False
+        self.refresh_interval = 180000 * 3 * 3  # 27分钟
         self.countdown_seconds = 180 * 3 * 3
         self.is_refreshing = False # 防止重复刷新
-        
+
         # 初始化UI
         self.init_ui()
-        
+
         # 初始加载已有数据（不触发脚本）
         self.load_data()
-        
-        # 启动自动刷新定时器
-        self.refresh_timer = QTimer(self)
-        self.refresh_timer.timeout.connect(self.auto_refresh_check)
-        self.refresh_timer.start(self.refresh_interval)
-        
-        # 启动倒计时更新定时器
-        self.countdown_timer = QTimer(self)
-        self.countdown_timer.timeout.connect(self.update_countdown)
-        self.countdown_timer.start(1000)  # 每秒更新
+
+        # 仅在启用自动刷新时启动定时器
+        if self.auto_refresh_enabled:
+            self.refresh_timer = QTimer(self)
+            self.refresh_timer.timeout.connect(self.auto_refresh_check)
+            self.refresh_timer.start(self.refresh_interval)
+
+            self.countdown_timer = QTimer(self)
+            self.countdown_timer.timeout.connect(self.update_countdown)
+            self.countdown_timer.start(1000)  # 每秒更新
+        else:
+            self.refresh_timer = None
+            self.countdown_timer = None
 
     def is_trading_time(self):
         """判断当前是否为交易时间"""
@@ -475,8 +479,11 @@ class OptionTShapeWindow(QMainWindow):
         # 清理旧数据 (关键：删除支持断点续传的文件，强制重新获取)
         try:
             files_to_clean = [
-                "wisecoin-期权行情.xlsx",
-                "wisecoin-期货行情.xlsx"
+                "wisecoin-期权行情.csv",   # 优先清理CSV格式
+                "wisecoin-期权行情.xlsx",  # 兼容旧格式
+                "wisecoin-期货行情.xlsx",
+                "wisecoin-期货K线.csv",    # 清理CSV格式
+                "wisecoin-期货K线.xlsx",   # 兼容旧格式
             ]
             for clean_file in files_to_clean:
                 clean_path = self.project_root / clean_file
@@ -572,10 +579,11 @@ class OptionTShapeWindow(QMainWindow):
         controls_layout.addWidget(self.market_overview_button)
         
         controls_layout.addStretch()
-        
-        # 倒计时标签
-        self.countdown_label = QLabel("下次刷新: 3:00")
+
+        # 倒计时标签（默认隐藏）
+        self.countdown_label = QLabel("下次刷新: 27:00")
         self.countdown_label.setStyleSheet("color: #666; font-size: 10pt; margin-right: 10px;")
+        self.countdown_label.setVisible(self.auto_refresh_enabled)  # 根据配置显示/隐藏
         controls_layout.addWidget(self.countdown_label)
         
         self.status_label = QLabel("状态：未加载")
@@ -916,25 +924,47 @@ class OptionTShapeWindow(QMainWindow):
             except Exception as e:
                 print(f"读取波动率曲面失败 (可能未生成): {e}")
 
-            # 读取期货K线数据
-            klines_file = self.project_root / 'wisecoin-期货K线.xlsx'
+            # 读取期货K线数据（支持CSV和XLSX格式）
+            klines_file_csv = self.project_root / 'wisecoin-期货K线.csv'
+            klines_file_xlsx = self.project_root / 'wisecoin-期货K线.xlsx'
 
             self.klines_data = {}
-            if klines_file.exists():
+
+            # 优先读取CSV格式
+            klines_file = None
+            if klines_file_csv.exists():
+                klines_file = klines_file_csv
+            elif klines_file_xlsx.exists():
+                klines_file = klines_file_xlsx
+
+            if klines_file:
                 try:
-                    klines_xl = pd.ExcelFile(klines_file)
-                    for sheet_name in klines_xl.sheet_names:
-                        if sheet_name == 'Summary':
-                            continue
-                        df = pd.read_excel(klines_xl, sheet_name=sheet_name)
-                        # 过滤 datetime_str 为空的数据
-                        if 'datetime_str' in df.columns:
-                            df = df[df['datetime_str'].notna() & (df['datetime_str'] != '')]
-                        if not df.empty:
-                            # 恢复原始合约代码 (sheet名用_替换了.)
-                            symbol = sheet_name.replace('_', '.', 1)
-                            self.klines_data[symbol] = df
-                    print(f"已加载 {len(self.klines_data)} 个合约的K线数据")
+                    if str(klines_file).endswith('.csv'):
+                        # CSV格式：直接读取，按symbol分组
+                        df_all = pd.read_csv(klines_file)
+                        if not df_all.empty and 'symbol' in df_all.columns:
+                            for symbol, group_df in df_all.groupby('symbol'):
+                                # 过滤 datetime_str 为空的数据
+                                if 'datetime_str' in group_df.columns:
+                                    group_df = group_df[group_df['datetime_str'].notna() & (group_df['datetime_str'] != '')]
+                                if not group_df.empty:
+                                    self.klines_data[symbol] = group_df
+                            print(f"已加载 {len(self.klines_data)} 个合约的K线数据 (CSV格式)")
+                    else:
+                        # XLSX格式：读取多个sheet
+                        klines_xl = pd.ExcelFile(klines_file)
+                        for sheet_name in klines_xl.sheet_names:
+                            if sheet_name == 'Summary':
+                                continue
+                            df = pd.read_excel(klines_xl, sheet_name=sheet_name)
+                            # 过滤 datetime_str 为空的数据
+                            if 'datetime_str' in df.columns:
+                                df = df[df['datetime_str'].notna() & (df['datetime_str'] != '')]
+                            if not df.empty:
+                                # 恢复原始合约代码 (sheet名用_替换了.)
+                                symbol = sheet_name.replace('_', '.', 1)
+                                self.klines_data[symbol] = df
+                        print(f"已加载 {len(self.klines_data)} 个合约的K线数据 (XLSX格式)")
                 except Exception as e:
                     print(f"读取期货K线数据失败: {e}")
             

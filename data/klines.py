@@ -5,6 +5,7 @@
 K线数据获取模块。
 
 从期权行情文件中提取标的期货合约，获取其K线数据。
+支持CSV和XLSX格式的期权行情文件。
 
 等价于原 14wisecoin_options_client_data_klines.py。
 
@@ -13,8 +14,8 @@ Example:
     >>> async with TqSdkClient() as client:
     ...     fetcher = FuturesKlineFetcher(client.api)
     ...     await fetcher.fetch_and_save(
-    ...         quote_file="wisecoin-期权行情.xlsx",
-    ...         output_file="wisecoin-期货K线.xlsx"
+    ...         quote_file="wisecoin-期权行情.csv",
+    ...         output_file="wisecoin-期货K线.csv"
     ...     )
 
 Usage:
@@ -50,8 +51,10 @@ except ImportError:
 
 # 默认文件路径
 TEMP_DIR = ""
-DEFAULT_QUOTE_FILE = os.path.join(TEMP_DIR, "wisecoin-期权行情.xlsx")
-DEFAULT_OUTPUT_FILE = os.path.join(TEMP_DIR, "wisecoin-期货K线.xlsx")
+DEFAULT_QUOTE_FILE = os.path.join(TEMP_DIR, "wisecoin-期权行情.csv")  # 改用CSV格式
+DEFAULT_QUOTE_FILE_XLSX = os.path.join(TEMP_DIR, "wisecoin-期权行情.xlsx")  # 兼容旧格式
+DEFAULT_OUTPUT_FILE = os.path.join(TEMP_DIR, "wisecoin-期货K线.csv")  # 改用CSV格式
+DEFAULT_OUTPUT_FILE_XLSX = os.path.join(TEMP_DIR, "wisecoin-期货K线.xlsx")  # 兼容旧格式
 
 
 class FuturesKlineFetcher:
@@ -154,8 +157,11 @@ class FuturesKlineFetcher:
                 self.logger.error("未能获取到任何期货K线数据")
                 return {"success": 0, "fail": counts["fail"], "error": "无数据"}
 
-            # 3. 导出到Excel
-            self._export_to_excel(all_klines, output_file)
+            # 3. 导出到文件（优先CSV格式）
+            if output_file.endswith('.csv'):
+                self._export_to_csv(all_klines, output_file)
+            else:
+                self._export_to_excel(all_klines, output_file)
 
             self.logger.info(
                 f"期货K线保存完成: {output_file}, "
@@ -172,29 +178,44 @@ class FuturesKlineFetcher:
         """
         从期权行情文件中提取唯一的标的期货合约代码。
 
+        支持CSV和XLSX格式。
+
         Args:
-            quote_file: 期权行情Excel文件路径。
+            quote_file: 期权行情文件路径。
 
         Returns:
             排序后的标的合约代码列表。
         """
         self.logger.info(f"正在读取 {quote_file} 以获取标的期货列表...")
 
-        xls = pd.ExcelFile(quote_file)
         all_underlyings: Set[str] = set()
 
-        for sheet_name in xls.sheet_names:
-            if sheet_name in self.SKIP_SHEETS:
-                continue
+        if quote_file.endswith('.csv'):
+            # CSV格式：直接读取单个文件
+            try:
+                df = pd.read_csv(quote_file)
+                if 'underlying_symbol' in df.columns:
+                    symbols = df['underlying_symbol'].dropna().unique().tolist()
+                    for s in symbols:
+                        if s and isinstance(s, str) and '.' in s:
+                            all_underlyings.add(s)
+            except Exception as e:
+                self.logger.warning(f"读取CSV文件失败: {e}")
+        else:
+            # XLSX格式：读取多个sheet
+            xls = pd.ExcelFile(quote_file)
+            for sheet_name in xls.sheet_names:
+                if sheet_name in self.SKIP_SHEETS:
+                    continue
 
-            df = pd.read_excel(xls, sheet_name=sheet_name)
-            if 'underlying_symbol' not in df.columns:
-                continue
+                df = pd.read_excel(xls, sheet_name=sheet_name)
+                if 'underlying_symbol' not in df.columns:
+                    continue
 
-            symbols = df['underlying_symbol'].dropna().unique().tolist()
-            for s in symbols:
-                if s and isinstance(s, str) and '.' in s:
-                    all_underlyings.add(s)
+                symbols = df['underlying_symbol'].dropna().unique().tolist()
+                for s in symbols:
+                    if s and isinstance(s, str) and '.' in s:
+                        all_underlyings.add(s)
 
         return sorted(list(all_underlyings))
 
@@ -310,6 +331,59 @@ class FuturesKlineFetcher:
             return f"{exchange}.{code_match.group(0)}"
 
         return symbol
+
+    def _export_to_csv(
+        self,
+        all_klines: Dict[str, pd.DataFrame],
+        output_file: str,
+    ):
+        """
+        将K线数据导出到CSV文件（高效格式）。
+
+        将所有合约的K线数据合并到一个CSV文件中，
+        添加 symbol 列用于区分不同合约。
+
+        Args:
+            all_klines: 合约代码 -> DataFrame 的映射。
+            output_file: 输出文件路径。
+        """
+        self.logger.info(f"正在将期货K线导出到 {output_file}...")
+
+        # 确保输出目录存在
+        output_dir = os.path.dirname(output_file)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+
+        all_rows = []
+        for symbol, klines_df in all_klines.items():
+            if klines_df.empty:
+                continue
+            # 确保 symbol 列存在
+            df_copy = klines_df.copy()
+            if 'symbol' not in df_copy.columns:
+                df_copy['symbol'] = symbol
+            all_rows.append(df_copy)
+
+        if not all_rows:
+            self.logger.warning("没有K线数据需要导出")
+            return
+
+        # 合并所有数据
+        combined_df = pd.concat(all_rows, ignore_index=True)
+
+        # 按 symbol 和 datetime 排序
+        sort_cols = []
+        if 'symbol' in combined_df.columns:
+            sort_cols.append('symbol')
+        if 'datetime' in combined_df.columns:
+            sort_cols.append('datetime')
+
+        if sort_cols:
+            combined_df = combined_df.sort_values(sort_cols)
+
+        # 保存为CSV
+        combined_df.to_csv(output_file, index=False, encoding='utf-8-sig')
+        self.logger.info(f"已保存 {len(combined_df)} 条K线记录到 {output_file}")
 
     def _export_to_excel(
         self,
@@ -500,13 +574,17 @@ def main():
         print("错误: TqSDK 未安装，请运行: pip install tqsdk")
         return 1
 
-    # 检查行情文件
+    # 检查行情文件（优先CSV格式，兼容XLSX格式）
     quote_file = DEFAULT_QUOTE_FILE
+    if not os.path.exists(quote_file):
+        quote_file = DEFAULT_QUOTE_FILE_XLSX
+    if not os.path.exists(quote_file):
+        quote_file = "wisecoin-期权行情.csv"
     if not os.path.exists(quote_file):
         quote_file = "wisecoin-期权行情.xlsx"
 
     if not os.path.exists(quote_file):
-        logger.error(f"期权行情文件不存在: {quote_file}")
+        logger.error(f"期权行情文件不存在")
         return 1
 
     output_file = DEFAULT_OUTPUT_FILE
