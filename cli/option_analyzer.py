@@ -44,7 +44,7 @@ from core.iv_calculator import IVCalculator
 
 # Excel 样式
 try:
-    from openpyxl.styles import PatternFill
+    from openpyxl.styles import PatternFill, Font, Alignment
     from openpyxl.utils import get_column_letter
     OPENPYXL_AVAILABLE = True
 except ImportError:
@@ -447,12 +447,12 @@ class OptionAnalysisRunner:
                 call_oi_change = calls['oi_change'].sum()
                 put_oi_change = puts['oi_change'].sum()
 
-                # 资金计算
+                # 资金计算 - 直接汇总已计算好的沉淀资金和成交资金
                 und_price = group['und_price'].iloc[0] if len(group) > 0 else 0
                 multiplier = group['multiplier'].iloc[0] if len(group) > 0 else 1
 
-                total_chendian = (total_oi * group['last_price'].mean() * multiplier) / 1e8
-                total_chengjiao = (total_volume * group['last_price'].mean() * multiplier) / 1e8
+                total_chendian = group['chendian'].sum()
+                total_chengjiao = group['chengjiao'].sum()
 
                 # PCR 分析
                 pcr_oi = put_oi / call_oi if call_oi > 0 else 1.0
@@ -626,11 +626,126 @@ class OptionAnalysisRunner:
                         continue
                     df.to_excel(writer, sheet_name=sheet_name, index=False)
 
+                    if OPENPYXL_AVAILABLE:
+                        ws = writer.sheets[sheet_name]
+                        self._apply_sheet_formatting(ws, df, sheet_name)
+
             logger.info(f"保存分析报告: {output_file}")
             return True
         except Exception as e:
             logger.error(f"保存文件失败: {e}")
             return False
+
+    def _calculate_display_width(self, s) -> int:
+        """计算字符串的显示宽度（中文占2单位，英文占1单位）"""
+        if s is None or pd.isna(s):
+            return 0
+        s = str(s)
+        width = 0
+        for char in s:
+            if ord(char) > 127:  # 中文字符或全角符号
+                width += 2
+            else:
+                width += 1
+        return width
+
+    def _apply_sheet_formatting(self, ws, df, sheet_name):
+        """应用工作表格式"""
+        # 颜色定义
+        green_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+        red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+        yellow_fill = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
+        blue_fill = PatternFill(start_color="BDD7EE", end_color="BDD7EE", fill_type="solid")
+        purple_fill = PatternFill(start_color="E1D5E7", end_color="E1D5E7", fill_type="solid")
+
+        # 表头样式 - 深蓝色
+        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        header_font = Font(color="FFFFFF", bold=True)
+
+        for cell in ws[1]:
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+
+        # 冻结首行
+        ws.freeze_panes = 'A2'
+
+        # 自动列宽
+        for idx, col in enumerate(df.columns):
+            header_width = self._calculate_display_width(col)
+            content_width = df[col].astype(str).map(self._calculate_display_width).max() if len(df) > 0 else 0
+            max_len = max(header_width, content_width) + 2
+            ws.column_dimensions[get_column_letter(idx + 1)].width = min(max_len, 40)
+
+        # 条件格式化
+        self._apply_conditional_formatting(ws, df, sheet_name, green_fill, red_fill, yellow_fill, blue_fill, purple_fill)
+
+    def _apply_conditional_formatting(self, ws, df, sheet_name, green_fill, red_fill, yellow_fill, blue_fill, purple_fill):
+        """应用条件格式化"""
+        # 正值绿色，负值红色的列
+        red_green_cols = ['持仓变化', 'CALL持仓变化', 'PUT持仓变化', '痛点距离%', '情绪倾向']
+        # 评分类 - 高分绿色
+        score_cols = ['综合评分', '流动性评分', '活跃度评分', '类型置信度']
+        # PCR类 - 低值绿色高值红色
+        pcr_cols = ['PCR(持仓)', 'PCR(成交)', 'PCR(资金)']
+        # 交易类型列
+        trading_type_cols = ['交易类型', '类型细分']
+
+        cols = list(df.columns)
+
+        for r_idx, row in enumerate(df.itertuples(), start=2):
+            for col_name in cols:
+                if col_name not in df.columns:
+                    continue
+                col_idx = cols.index(col_name) + 1
+
+                # 安全获取值
+                val = None
+                try:
+                    val = getattr(row, col_name.replace(' ', '_').replace('(', '').replace(')', '').replace('%', ''), None)
+                except:
+                    pass
+
+                if val is None:
+                    continue
+
+                cell = ws.cell(row=r_idx, column=col_idx)
+
+                # 数值类条件格式
+                try:
+                    num_val = float(val)
+
+                    if col_name in red_green_cols:
+                        if num_val > 0:
+                            cell.fill = green_fill
+                        elif num_val < 0:
+                            cell.fill = red_fill
+                    elif col_name in score_cols:
+                        if num_val >= 70:
+                            cell.fill = green_fill
+                        elif num_val >= 40:
+                            cell.fill = yellow_fill
+                        elif num_val < 40:
+                            cell.fill = red_fill
+                    elif col_name in pcr_cols:
+                        if num_val < 0.8:
+                            cell.fill = green_fill
+                        elif num_val > 1.2:
+                            cell.fill = red_fill
+                        else:
+                            cell.fill = yellow_fill
+                except (ValueError, TypeError):
+                    pass
+
+                # 字符串类条件格式
+                str_val = str(val)
+                if col_name in trading_type_cols:
+                    if '方向' in str_val or '看多' in str_val or '看空' in str_val:
+                        cell.fill = red_fill
+                    elif '波动率' in str_val or '跨式' in str_val:
+                        cell.fill = blue_fill
+                    elif '混合' in str_val:
+                        cell.fill = purple_fill
 
     def generate_option_reference(self, raw_df: pd.DataFrame) -> bool:
         """
@@ -897,6 +1012,16 @@ class OptionAnalysisRunner:
 
                 if OPENPYXL_AVAILABLE:
                     ws = writer.sheets['期权参考']
+
+                    # 表头样式 - 深蓝色
+                    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+                    header_font = Font(color="FFFFFF", bold=True)
+
+                    for cell in ws[1]:
+                        cell.fill = header_fill
+                        cell.font = header_font
+                        cell.alignment = Alignment(horizontal='center', vertical='center')
+
                     ws.freeze_panes = 'A2'
 
                     # 定义样式

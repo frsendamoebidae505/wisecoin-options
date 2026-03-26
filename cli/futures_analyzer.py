@@ -420,6 +420,7 @@ class FuturesAnalysisRunner:
                 put_oi = opt_row.get('PUT持仓', 0)
                 call_change = opt_row.get('CALL变化', 0)
                 put_change = opt_row.get('PUT变化', 0)
+                opt_sentiment = opt_row.get('情绪倾向', 0)  # 期权情绪倾向
 
                 # 期货数据
                 fut_price = fut_row.get('现价', 0)
@@ -450,7 +451,7 @@ class FuturesAnalysisRunner:
 
                 # 期货沉淀和期权沉淀
                 fut_chendian = fut_row.get('沉淀资金(亿)', 0)
-                opt_chendian = opt_row.get('期权沉淀(亿)', 0) or opt_row.get('沉淀资金(亿)', 0)
+                opt_chendian = opt_row.get('沉淀资金(亿)', 0)  # 期权排行中的沉淀资金
 
                 correlation_analysis.append({
                     '标的合约': underlying,
@@ -465,6 +466,7 @@ class FuturesAnalysisRunner:
                     '最大痛点': max_pain,
                     '痛点距离%': round((max_pain - fut_price) / fut_price * 100, 2) if fut_price > 0 else 0,
                     '期权结构': opt_structure,
+                    '情绪倾向': opt_sentiment,  # 新增期权情绪
                     '共振评分': resonance_score,
                     '联动状态': linkage_state,
                     '策略建议': strategy,
@@ -999,21 +1001,213 @@ class FuturesAnalysisRunner:
     def _apply_formatting(self, writer, sheets: Dict[str, pd.DataFrame]):
         """应用Excel格式"""
         # 颜色定义
-        bullish_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
-        bearish_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
-        neutral_fill = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
+        green_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+        red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+        yellow_fill = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
+        blue_fill = PatternFill(start_color="BDD7EE", end_color="BDD7EE", fill_type="solid")
+        purple_fill = PatternFill(start_color="E1D5E7", end_color="E1D5E7", fill_type="solid")
+        gold_fill = PatternFill(start_color="FFD700", end_color="FFD700", fill_type="solid")
+
+        # 表头样式 - 深蓝色
+        header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+        header_font = Font(color="FFFFFF", bold=True)
 
         for sheet_name, df in sheets.items():
             if df.empty:
                 continue
 
             ws = writer.sheets[sheet_name]
+
+            # 表头样式
+            for cell in ws[1]:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+
+            # 冻结首行
             ws.freeze_panes = 'A2'
 
-            # 列宽调整
+            # 列宽调整 - 支持中文字符宽度计算
             for idx, col in enumerate(df.columns):
-                max_width = max(len(str(col)), df[col].astype(str).str.len().max() if len(df) > 0 else 10)
-                ws.column_dimensions[get_column_letter(idx + 1)].width = min(max_width + 2, 25)
+                header_width = self._calculate_display_width(col)
+                content_width = df[col].astype(str).map(self._calculate_display_width).max() if len(df) > 0 else 0
+
+                # 针对特定列微调
+                if str(col) == '数值':
+                    padding = 6
+                elif str(col) in ['沉淀资金合计(亿)', '资金合计(亿)']:
+                    padding = 0
+                elif '百分比' in str(col) or '%' in str(col) or '评分' in str(col):
+                    padding = 1
+                else:
+                    padding = 2
+
+                max_len = max(header_width, content_width) + padding
+                ws.column_dimensions[get_column_letter(idx + 1)].width = min(max_len, 40)
+
+            # 条件格式化
+            self._apply_conditional_formatting(ws, df, sheet_name, green_fill, red_fill, yellow_fill, blue_fill, purple_fill, gold_fill)
+
+    def _calculate_display_width(self, s) -> int:
+        """计算字符串的显示宽度（中文占2单位，英文占1单位）"""
+        if s is None or pd.isna(s):
+            return 0
+        s = str(s)
+        width = 0
+        for char in s:
+            if ord(char) > 127:  # 中文字符或全角符号
+                width += 2
+            else:
+                width += 1
+        return width
+
+    def _apply_conditional_formatting(self, ws, df, sheet_name, green_fill, red_fill, yellow_fill, blue_fill, purple_fill, gold_fill):
+        """应用条件格式化"""
+        # 涨跌类列
+        change_cols = ['涨跌%', '杠杆涨跌%', '持仓变化', '持仓变化%']
+        # 信号类列
+        signal_cols = ['流向信号', '共振评分']
+        # 趋势状态列
+        trend_state_cols = ['趋势状态', '期货状态']
+        # 联动状态列
+        linkage_cols = ['联动状态', '共振标签']
+        # 强度分数列
+        score_cols = ['联动总分']
+
+        cols = list(df.columns)
+
+        for r_idx, row in enumerate(df.itertuples(), start=2):
+            for col_idx, col_name in enumerate(cols, start=1):
+                try:
+                    # 安全获取值
+                    val = None
+                    try:
+                        val = getattr(row, col_name.replace(' ', '_').replace('(', '').replace(')', '').replace('%', '').replace('/', '_'), None)
+                    except:
+                        # 如果属性名不匹配，尝试通过索引获取
+                        pass
+
+                    if val is None:
+                        # 尝试直接从df获取
+                        try:
+                            val = df.iloc[r_idx - 2, col_idx - 1]
+                        except:
+                            continue
+
+                    cell = ws.cell(row=r_idx, column=col_idx)
+
+                    # 涨跌着色
+                    if col_name in change_cols:
+                        try:
+                            num_val = float(val)
+                            if num_val > 0:
+                                cell.fill = red_fill  # 上涨红色
+                            elif num_val < 0:
+                                cell.fill = green_fill  # 下跌绿色
+                        except:
+                            pass
+
+                    # 信号着色
+                    elif col_name in signal_cols:
+                        try:
+                            num_val = float(val)
+                            if col_name == '共振评分':
+                                if num_val >= 7:
+                                    cell.fill = gold_fill  # 强共振 金色
+                                elif num_val >= 5:
+                                    cell.fill = red_fill   # 共振 红色
+                                elif num_val >= 3:
+                                    cell.fill = yellow_fill  # 中性
+                                elif num_val < 1:
+                                    cell.fill = purple_fill  # 背离
+                            else:
+                                if num_val >= 2:
+                                    cell.fill = red_fill  # 强多
+                                elif num_val >= 1:
+                                    cell.fill = yellow_fill  # 偏多
+                                elif num_val <= -2:
+                                    cell.fill = green_fill  # 强空
+                                elif num_val <= -1:
+                                    cell.fill = blue_fill  # 偏空
+                        except:
+                            pass
+
+                    # 趋势状态着色
+                    elif col_name in trend_state_cols:
+                        str_val = str(val)
+                        if '多头强化' in str_val:
+                            cell.fill = red_fill
+                        elif '多头衰减' in str_val:
+                            cell.fill = yellow_fill
+                        elif '空头强化' in str_val:
+                            cell.fill = green_fill
+                        elif '空头衰减' in str_val:
+                            cell.fill = blue_fill
+                        elif '震荡' in str_val:
+                            cell.fill = purple_fill
+
+                    # 联动状态着色
+                    elif col_name in linkage_cols:
+                        str_val = str(val)
+                        if '确认' in str_val or '强共振' in str_val or '加速' in str_val:
+                            cell.fill = gold_fill
+                        elif '警惕' in str_val or '背离' in str_val:
+                            cell.fill = purple_fill
+                        elif '机会' in str_val or '共振' in str_val:
+                            cell.fill = red_fill
+                        elif '信号' in str_val:
+                            cell.fill = yellow_fill
+
+                    # 期权结构着色
+                    elif col_name == '期权结构':
+                        str_val = str(val)
+                        if '看多' in str_val:
+                            cell.fill = red_fill
+                        elif '看空' in str_val:
+                            cell.fill = green_fill
+                        elif '波动率' in str_val:
+                            cell.fill = blue_fill
+
+                    # 期权情绪着色
+                    elif col_name == '期权情绪':
+                        str_val = str(val)
+                        if '狂热' in str_val:
+                            cell.fill = red_fill
+                        elif '恐慌' in str_val:
+                            cell.fill = green_fill
+                        elif '筑底' in str_val:
+                            cell.fill = yellow_fill
+                        elif '冲高' in str_val:
+                            cell.fill = blue_fill
+
+                    # 共振等级着色
+                    elif col_name == '共振等级':
+                        str_val = str(val)
+                        if '⭐⭐⭐⭐' in str_val:
+                            cell.fill = gold_fill
+                        elif '⭐⭐⭐' in str_val:
+                            cell.fill = red_fill
+                        elif '⚠️' in str_val:
+                            cell.fill = purple_fill
+
+                    # 强度模型评分着色
+                    elif col_name in score_cols:
+                        try:
+                            score = float(val)
+                            if col_name == '联动总分':
+                                if score >= 80:
+                                    cell.fill = gold_fill
+                                elif score >= 60:
+                                    cell.fill = red_fill
+                                elif score >= 40:
+                                    cell.fill = yellow_fill
+                                else:
+                                    cell.fill = blue_fill
+                        except:
+                            pass
+
+                except Exception:
+                    continue
 
     def run(self) -> bool:
         """

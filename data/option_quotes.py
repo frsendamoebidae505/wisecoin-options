@@ -171,6 +171,7 @@ class OptionQuotesManager:
     async def _get_options_by_underlying(self) -> List[str]:
         """
         根据 live_symbols 直接按标的获取期权合约（高效模式）。
+        同时会额外获取股指期权（CFFEX交易所的期权）。
 
         Returns:
             过滤后的期权合约列表。
@@ -208,9 +209,24 @@ class OptionQuotesManager:
             except Exception as e:
                 self.logger.warning(f"获取标的 {underlying} 的期权失败: {e}")
 
+        # 额外获取股指期权（CFFEX交易所的期权）
+        # 股指期权的标的是股指期货（IF、IC、IH、IM等），不在商品期货列表中
+        self.logger.info("正在获取股指期权（CFFEX）...")
+        try:
+            # 获取CFFEX交易所的所有期权
+            cffex_options = await asyncio.wait_for(
+                self.api.query_quotes(ins_class='OPTION', exchange_id='CFFEX', expired=False),
+                timeout=60
+            )
+            if cffex_options:
+                all_options.extend(cffex_options)
+                self.logger.info(f"获取到 {len(cffex_options)} 个股指期权合约")
+        except Exception as e:
+            self.logger.warning(f"获取股指期权失败: {e}")
+
         # 去重
         all_options = sorted(list(set(all_options)))
-        self.logger.info(f"获取到 {len(all_options)} 个期权合约")
+        self.logger.info(f"获取到 {len(all_options)} 个期权合约（含股指期权）")
 
         if not all_options:
             self.logger.warning("未获取到任何期权合约")
