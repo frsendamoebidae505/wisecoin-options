@@ -4,6 +4,8 @@ WiseCoin 配置管理模块。
 
 提供统一的配置管理，支持运行模式切换、账户配置、业务参数配置。
 
+配置文件: config.json (项目根目录)
+
 Example:
     >>> config = Config(run_mode=2)
     >>> print(config.RUN_MODES[config.run_mode])
@@ -11,7 +13,14 @@ Example:
 """
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict
+from pathlib import Path
 import os
+import json
+
+
+# 项目根目录
+PROJECT_ROOT = Path(__file__).parent.parent.resolve()
+DEFAULT_CONFIG_FILE = PROJECT_ROOT / "config.json"
 
 
 @dataclass
@@ -22,11 +31,24 @@ class AccountConfig:
     Attributes:
         broker: 期货公司名称。
         account: 账户号。
-        password: 密码（应从环境变量读取）。
+        password: 密码。
     """
     broker: str
     account: str
     password: str
+
+
+@dataclass
+class TqAuthConfig:
+    """
+    TqAuth 认证配置。
+
+    Attributes:
+        user: 用户名。
+        password: 密码。
+    """
+    user: str = ""
+    password: str = ""
 
 
 @dataclass
@@ -124,10 +146,17 @@ class Config:
         self.data = DataConfig()
         self.scheduler = SchedulerConfig()
         self._accounts: Dict[int, AccountConfig] = {}
+        self._tq_auth: Optional[TqAuthConfig] = None
 
+        # 加载配置
         if config_path:
             self._load_from_file(config_path)
-        self._load_accounts()
+        elif DEFAULT_CONFIG_FILE.exists():
+            self._load_from_file(str(DEFAULT_CONFIG_FILE))
+
+        # 环境变量覆盖配置文件
+        self._load_accounts_from_env()
+        self._load_auth_from_env()
 
     def _load_from_file(self, path: str):
         """
@@ -136,11 +165,34 @@ class Config:
         Args:
             path: 配置文件路径。
         """
-        # TODO: 实现 JSON/YAML 配置文件加载
-        pass
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
 
-    def _load_accounts(self):
-        """从环境变量加载账户配置。"""
+            # 加载 TqAuth 配置
+            if 'tq_auth' in data:
+                auth = data['tq_auth']
+                self._tq_auth = TqAuthConfig(
+                    user=auth.get('user', ''),
+                    password=auth.get('password', '')
+                )
+
+            # 加载账户配置
+            if 'accounts' in data:
+                for mode_str, acc in data['accounts'].items():
+                    mode = int(mode_str)
+                    if acc.get('account') and acc.get('password'):
+                        self._accounts[mode] = AccountConfig(
+                            broker=acc.get('broker', ''),
+                            account=acc['account'],
+                            password=acc['password']
+                        )
+
+        except Exception as e:
+            print(f"⚠️ 加载配置文件失败: {e}")
+
+    def _load_accounts_from_env(self):
+        """从环境变量加载账户配置（覆盖配置文件）。"""
         for mode in self.RUN_MODES.keys():
             broker = os.getenv(f'TQ_BROKER_{mode}')
             account = os.getenv(f'TQ_ACCOUNT_{mode}')
@@ -152,6 +204,13 @@ class Config:
                     password=password,
                 )
 
+    def _load_auth_from_env(self):
+        """从环境变量加载 TqAuth 配置（覆盖配置文件）。"""
+        user = os.getenv('TQ_AUTH_USER')
+        password = os.getenv('TQ_AUTH_PASSWORD')
+        if user and password:
+            self._tq_auth = TqAuthConfig(user=user, password=password)
+
     def get_account(self) -> Optional[AccountConfig]:
         """
         获取当前运行模式的账户配置。
@@ -160,3 +219,12 @@ class Config:
             账户配置，如果未配置则返回 None。
         """
         return self._accounts.get(self.run_mode)
+
+    def get_tq_auth(self) -> Optional[TqAuthConfig]:
+        """
+        获取 TqAuth 认证配置。
+
+        Returns:
+            TqAuth 配置，如果未配置则返回 None。
+        """
+        return self._tq_auth

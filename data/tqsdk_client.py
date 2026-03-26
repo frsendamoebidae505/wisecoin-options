@@ -159,14 +159,10 @@ class TqSdkClient:
         Returns:
             TqAuth 实例或 None。
         """
-        import os
+        auth_config = self.config.get_tq_auth()
 
-        # 从环境变量获取 TqAuth 信息
-        auth_user = os.getenv("TQ_AUTH_USER", "huaying")
-        auth_password = os.getenv("TQ_AUTH_PASSWORD", "bonze13")
-
-        if auth_user and auth_password and TqAuth:
-            return TqAuth(auth_user, auth_password)
+        if auth_config and auth_config.user and auth_config.password and TqAuth:
+            return TqAuth(auth_config.user, auth_config.password)
 
         return None
 

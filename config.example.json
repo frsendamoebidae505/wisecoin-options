@@ -1,0 +1,13 @@
+{
+    "tq_auth": {
+        "user": "your_tqsdk_username",
+        "password": "your_tqsdk_password"
+    },
+    "accounts": {
+        "3": {
+            "broker": "simnow",
+            "account": "your_simnow_account",
+            "password": "your_simnow_password"
+        }
+    }
+}

@@ -169,7 +169,69 @@ wisecoin-options-free/
 
 ---
 
-## 五、依赖说明
+## 五、配置说明
+
+### 配置文件
+
+项目根目录下的 `config.json` 用于存储账号配置：
+
+```bash
+# 复制示例配置文件
+cp config.example.json config.json
+
+# 编辑配置文件，填入真实账号信息
+vim config.json
+```
+
+### 配置文件结构
+
+```json
+{
+    "tq_auth": {
+        "user": "天勤账号",
+        "password": "天勤密码"
+    },
+    "accounts": {
+        "3": {
+            "broker": "simnow",
+            "account": "Simnow账号",
+            "password": "Simnow密码"
+        },
+        "4": {
+            "broker": "渤海期货",
+            "account": "实盘账号",
+            "password": "实盘密码"
+        }
+    }
+}
+```
+
+### 环境变量覆盖
+
+环境变量优先级高于配置文件：
+
+```bash
+# TqAuth 认证
+export TQ_AUTH_USER="your_username"
+export TQ_AUTH_PASSWORD="your_password"
+
+# 实盘账户配置（运行模式3-8需要）
+export TQ_BROKER_4="broker_name"
+export TQ_ACCOUNT_4="account_number"
+export TQ_PASSWORD_4="account_password"
+```
+
+### 运行模式
+| 模式 | 说明 |
+|------|------|
+| 1 | TqSim 回测 |
+| 2 | TqKq 快期模拟（默认） |
+| 3 | Simnow 模拟 |
+| 4-8 | 各期货公司实盘 |
+
+---
+
+## 六、依赖说明
 
 ### 必需依赖
 - Python 3.8+
@@ -192,31 +254,7 @@ pip install PyQt5 matplotlib  # GUI和图表
 
 ---
 
-## 六、TqSDK配置
-
-### 环境变量配置
-```bash
-# TqAuth认证（可选，有默认值）
-export TQ_AUTH_USER="your_username"
-export TQ_AUTH_PASSWORD="your_password"
-
-# 实盘账户配置（运行模式3-8需要）
-export TQ_BROKER_4="broker_name"
-export TQ_ACCOUNT_4="account_number"
-export TQ_PASSWORD_4="account_password"
-```
-
-### 运行模式
-| 模式 | 说明 |
-|------|------|
-| 1 | TqSim 回测 |
-| 2 | TqKq 快期模拟（默认） |
-| 3 | Simnow 模拟 |
-| 4-8 | 各期货公司实盘 |
-
----
-
-## 七、迁移对应表
+## 八、迁移对应表
 
 原始脚本与新模块对应关系：
 
@@ -258,7 +296,7 @@ export TQ_PASSWORD_4="account_password"
 
 ---
 
-## 八、常见问题
+## 九、常见问题
 
 ### Q1: 运行 `python3 -m data.xxx` 报错 "No module named 'data'"
 **A:** 确保在项目根目录下运行命令：
@@ -285,13 +323,16 @@ python3 -m cli.futures_analyzer
 
 ---
 
-## 九、更新日志
+## 十、更新日志
 
 ### 2026-03-26
 - 完成架构重构，代码量从 34,286 行减少到 14,701 行 (-57%)
 - 新增 `run.py` 智能启动入口
 - 新增 `run.command` macOS启动脚本（自动清理旧进程）
 - 新增 `data/live_symbol.py` 实时监控配置模块
+- 新增 `config.json` 账号配置文件（支持 TqAuth 和实盘账户）
+- 优化 `common/config.py` 支持从配置文件加载账号
+- 优化 `data/tqsdk_client.py` 移除硬编码账号，从 Config 读取
 - 优化 `cli/live_gui.py` 路径处理，移除冗余备份逻辑
 - 优化 `data/backup.py` 自动清理，最多保留10个备份
 - 修复 `data/backup.py` 递归复制问题
@@ -299,6 +340,6 @@ python3 -m cli.futures_analyzer
 
 ---
 
-## 十、联系方式
+## 十一、联系方式
 
 如有问题，请提交 Issue 到项目仓库。
