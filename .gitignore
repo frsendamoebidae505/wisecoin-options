@@ -1,0 +1,5 @@
+*.xlsx
+/trade/__pycache__
+/trade/__pycache__
+*.pyc
+/strategy/__pycache__

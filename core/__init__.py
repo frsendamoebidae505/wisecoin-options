@@ -16,11 +16,26 @@ from core.models import (
 )
 from core.analyzer import OptionAnalyzer
 from core.iv_calculator import IVCalculator
+from core.futures_analyzer import (
+    FuturesAnalyzer,
+    TrendDirection,
+    FlowSignal,
+    ResonanceLevel,
+    FuturesAnalysisResult,
+    LinkageAnalysisResult,
+    generate_market_summary,
+    generate_product_analysis,
+    generate_sector_analysis,
+    extract_category_name,
+)
 
 __all__ = [
     # Enums
     'CallOrPut',
     'Signal',
+    'TrendDirection',
+    'FlowSignal',
+    'ResonanceLevel',
     # Models
     'OptionQuote',
     'FutureQuote',
@@ -28,7 +43,15 @@ __all__ = [
     'AnalyzedOption',
     'StrategySignal',
     'ArbitrageOpportunity',
+    'FuturesAnalysisResult',
+    'LinkageAnalysisResult',
     # Analyzers
     'OptionAnalyzer',
     'IVCalculator',
+    'FuturesAnalyzer',
+    # Helper functions
+    'generate_market_summary',
+    'generate_product_analysis',
+    'generate_sector_analysis',
+    'extract_category_name',
 ]

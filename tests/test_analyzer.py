@@ -3,7 +3,17 @@
 import pytest
 from datetime import date
 from core.models import OptionQuote, CallOrPut, Signal
-from core.analyzer import OptionAnalyzer
+from core.analyzer import (
+    OptionAnalyzer,
+    OptionScorer,
+    OptionTradingClassifier,
+    MaxPainCalculator,
+    PCRAnalyzer,
+    UnderlyingAnalyzer,
+    OptionMetrics,
+    IntrinsicLevel,
+    TradingType,
+)
 
 
 @pytest.fixture
@@ -197,3 +207,270 @@ class TestOptionAnalyzer:
             assert "价值度" in reasons_text
             # 应该包含类型信息
             assert "类型" in reasons_text
+
+
+class TestOptionScorer:
+    """期权评分器测试类。"""
+
+    def test_scorer_creation(self):
+        """测试评分器创建。"""
+        scorer = OptionScorer()
+        assert scorer is not None
+
+    def test_score_basic(self, sample_options: list[OptionQuote], futures_prices: dict[str, float]):
+        """测试基本评分功能。"""
+        analyzer = OptionAnalyzer()
+        scorer = OptionScorer()
+
+        analyzed = analyzer.analyze(sample_options, futures_prices)
+        scored = scorer.score(analyzed)
+
+        assert len(scored) == 4
+        for result in scored:
+            assert 0 <= result.score <= 100
+            assert result.signal in [Signal.BUY, Signal.SELL, Signal.HOLD]
+
+    def test_filter_by_score(self, sample_options: list[OptionQuote], futures_prices: dict[str, float]):
+        """测试评分筛选功能。"""
+        analyzer = OptionAnalyzer()
+        scorer = OptionScorer()
+
+        analyzed = analyzer.analyze(sample_options, futures_prices)
+        scored = scorer.score(analyzed)
+
+        filtered = scorer.filter_by_score(scored, min_score=50.0)
+        assert all(opt.score >= 50.0 for opt in filtered)
+
+
+class TestOptionTradingClassifier:
+    """交易类型分类器测试类。"""
+
+    def test_classifier_creation(self):
+        """测试分类器创建。"""
+        classifier = OptionTradingClassifier()
+        assert classifier is not None
+
+    def test_directional_bullish(self):
+        """测试方向型看多分类。"""
+        classifier = OptionTradingClassifier()
+        # PCR极端看多 + CALL增仓
+        trading_type, subtype, confidence = classifier.classify(
+            call_oi_change=100,
+            put_oi_change=30,
+            pcr=0.4,
+            volume_ratio=1.5
+        )
+        assert trading_type == TradingType.DIRECTIONAL
+        assert "看多" in subtype
+
+    def test_directional_bearish(self):
+        """测试方向型看空分类。"""
+        classifier = OptionTradingClassifier()
+        # PCR极端看空 + PUT增仓
+        trading_type, subtype, confidence = classifier.classify(
+            call_oi_change=30,
+            put_oi_change=100,
+            pcr=1.6,
+            volume_ratio=1.5
+        )
+        assert trading_type == TradingType.DIRECTIONAL
+        assert "看空" in subtype
+
+    def test_volatility_type(self):
+        """测试波动率型分类。"""
+        classifier = OptionTradingClassifier()
+        # 双向增仓 + PCR中性
+        trading_type, subtype, confidence = classifier.classify(
+            call_oi_change=100,
+            put_oi_change=95,
+            pcr=1.0,
+            volume_ratio=1.5
+        )
+        assert trading_type == TradingType.VOLATILITY
+
+    def test_no_change(self):
+        """测试无明显变化情况。"""
+        classifier = OptionTradingClassifier()
+        trading_type, subtype, confidence = classifier.classify(
+            call_oi_change=0,
+            put_oi_change=0,
+            pcr=1.0
+        )
+        assert trading_type == TradingType.UNKNOWN
+
+
+class TestMaxPainCalculator:
+    """最大痛点计算器测试类。"""
+
+    def test_calculator_creation(self):
+        """测试计算器创建。"""
+        calc = MaxPainCalculator()
+        assert calc is not None
+
+    def test_calculate_basic(self):
+        """测试基本最大痛点计算。"""
+        calc = MaxPainCalculator()
+        options = [
+            {'strike': 100, 'open_interest': 100, 'multiplier': 1, 'call_or_put': 'CALL'},
+            {'strike': 100, 'open_interest': 100, 'multiplier': 1, 'call_or_put': 'PUT'},
+            {'strike': 110, 'open_interest': 50, 'multiplier': 1, 'call_or_put': 'CALL'},
+            {'strike': 90, 'open_interest': 50, 'multiplier': 1, 'call_or_put': 'PUT'},
+        ]
+        max_pain = calc.calculate(options)
+        assert max_pain > 0
+
+    def test_empty_options(self):
+        """测试空期权列表。"""
+        calc = MaxPainCalculator()
+        max_pain = calc.calculate([])
+        assert max_pain == 0.0
+
+
+class TestPCRAnalyzer:
+    """PCR分析器测试类。"""
+
+    def test_analyzer_creation(self):
+        """测试分析器创建。"""
+        analyzer = PCRAnalyzer()
+        assert analyzer is not None
+
+    def test_pcr_calculation(self):
+        """测试PCR计算。"""
+        analyzer = PCRAnalyzer()
+        pcr = analyzer.calculate_pcr(150, 100)
+        assert abs(pcr - 1.5) < 0.001
+
+    def test_pcr_zero_call(self):
+        """测试CALL为零时的PCR。"""
+        analyzer = PCRAnalyzer()
+        pcr = analyzer.calculate_pcr(100, 0)
+        assert pcr == 0.0
+
+    def test_interpret_pcr(self):
+        """测试PCR解读。"""
+        analyzer = PCRAnalyzer()
+        assert "看多" in analyzer.interpret_pcr(0.6)
+        assert "中性" in analyzer.interpret_pcr(1.0)
+        assert "看空" in analyzer.interpret_pcr(1.4)
+
+    def test_calculate_sentiment(self):
+        """测试情绪倾向计算。"""
+        analyzer = PCRAnalyzer()
+        sentiment = analyzer.calculate_sentiment(0.6)
+        assert sentiment > 0  # 看多情绪为正
+
+        sentiment = analyzer.calculate_sentiment(1.4)
+        assert sentiment < 0  # 看空情绪为负
+
+
+class TestUnderlyingAnalyzer:
+    """标的分析器测试类。"""
+
+    def test_analyzer_creation(self):
+        """测试分析器创建。"""
+        analyzer = UnderlyingAnalyzer()
+        assert analyzer is not None
+
+    def test_analyze_basic(self):
+        """测试基本标的分析。"""
+        analyzer = UnderlyingAnalyzer()
+        options = [
+            {
+                'symbol': 'IO2504-C-5000',
+                'underlying': 'IO2504',
+                'call_or_put': 'CALL',
+                'strike': 5000,
+                'last_price': 100,
+                'volume': 1000,
+                'open_interest': 5000,
+                'pre_oi': 4500,
+                'multiplier': 100,
+                'expire_days': 30
+            },
+            {
+                'symbol': 'IO2504-P-5000',
+                'underlying': 'IO2504',
+                'call_or_put': 'PUT',
+                'strike': 5000,
+                'last_price': 80,
+                'volume': 800,
+                'open_interest': 4000,
+                'pre_oi': 3800,
+                'multiplier': 100,
+                'expire_days': 30
+            }
+        ]
+
+        result = analyzer.analyze(options, underlying_price=5100)
+
+        assert result.underlying == 'IO2504'
+        assert result.num_contracts == 2
+        assert result.total_oi == 9000
+        assert result.call_oi == 5000
+        assert result.put_oi == 4000
+        assert 0 < result.pcr_oi < 1  # PUT < CALL
+
+    def test_empty_options(self):
+        """测试空期权列表。"""
+        analyzer = UnderlyingAnalyzer()
+        result = analyzer.analyze([], underlying_price=5000)
+        assert result.underlying == ''
+
+
+class TestOptionMetrics:
+    """期权指标测试类。"""
+
+    def test_metrics_creation(self):
+        """测试指标创建。"""
+        metrics = OptionMetrics(
+            symbol='IO2504-C-5000',
+            underlying='IO2504',
+            call_or_put=CallOrPut.CALL,
+            strike_price=5000.0,
+            option_price=100.0,
+            underlying_price=5100.0
+        )
+        assert metrics.symbol == 'IO2504-C-5000'
+        assert metrics.intrinsic_degree == 0.0
+        assert metrics.intrinsic_level == IntrinsicLevel.ATM_NEAR
+
+
+class TestAnalyzeSingle:
+    """单期权分析测试类。"""
+
+    def test_analyze_single_call(self, sample_options: list[OptionQuote]):
+        """测试单个看涨期权分析。"""
+        analyzer = OptionAnalyzer()
+        option = sample_options[0]  # ITM Call
+
+        metrics = analyzer.analyze_single(
+            quote=option,
+            future_price=6000.0,
+            multiplier=100,
+            margin_ratio=15.0,
+            expire_days=30
+        )
+
+        assert metrics.call_or_put == CallOrPut.CALL
+        assert metrics.is_itm is True
+        assert metrics.intrinsic_level == IntrinsicLevel.ATM_NEAR  # 3.45% 接近平值
+        assert metrics.intrinsic_value == 200.0  # 6000 - 5800
+        assert metrics.time_value == 50.0  # 250 - 200
+
+    def test_analyze_single_put(self, sample_options: list[OptionQuote]):
+        """测试单个看跌期权分析。"""
+        analyzer = OptionAnalyzer()
+        option = sample_options[2]  # ITM Put
+
+        metrics = analyzer.analyze_single(
+            quote=option,
+            future_price=6000.0,
+            multiplier=100,
+            margin_ratio=15.0,
+            expire_days=30
+        )
+
+        assert metrics.call_or_put == CallOrPut.PUT
+        assert metrics.is_itm is True
+        assert metrics.intrinsic_value == 200.0  # 6200 - 6000
+        assert metrics.time_value == 20.0  # 220 - 200

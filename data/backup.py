@@ -134,3 +134,60 @@ class BackupManager:
             item.name for item in self.backup_dir.iterdir()
             if item.is_dir()
         ])
+
+
+def main():
+    """
+    命令行入口。
+
+    等价于原 00wisecoin_options_backup.py。
+    """
+    import sys
+
+    logger = StructuredLogger("backup")
+
+    # 默认路径
+    script_dir = Path(__file__).parent.parent
+    source_dir = script_dir
+    backup_dir = script_dir / "backups"
+
+    # 解析命令行参数
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "clean":
+            # 清理模式
+            manager = BackupManager(str(source_dir), str(backup_dir), logger)
+            kept, removed = manager.clean_old_backups()
+            print(f"清理完成: 保留 {kept} 个备份, 删除 {removed} 个备份")
+            return 0
+        elif sys.argv[1] == "list":
+            # 列表模式
+            manager = BackupManager(str(source_dir), str(backup_dir), logger)
+            backups = manager.list_backups()
+            if backups:
+                print("现有备份:")
+                for name in backups:
+                    print(f"  - {name}")
+            else:
+                print("无备份")
+            return 0
+        else:
+            source_dir = Path(sys.argv[1])
+
+    if len(sys.argv) > 2:
+        backup_dir = Path(sys.argv[2])
+
+    # 创建备份
+    manager = BackupManager(str(source_dir), str(backup_dir), logger)
+    backup_path = manager.create_backup()
+
+    if backup_path:
+        print(f"备份创建成功: {backup_path}")
+        return 0
+    else:
+        print("备份创建失败")
+        return 1
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(main())

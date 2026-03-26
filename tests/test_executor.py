@@ -9,6 +9,8 @@ from trade.executor import (
     OrderResult,
     OrderStatus,
     OrderType,
+    Offset,
+    Direction,
 )
 from core.models import StrategySignal
 
@@ -21,7 +23,8 @@ class TestOrder:
         order = Order(
             symbol="au2406C480",
             exchange_id="SHFE",
-            direction="BUY",
+            direction=Direction.BUY,
+            offset=Offset.OPEN,
             volume=1,
             price=15.0,
             order_type=OrderType.LIMIT,
@@ -44,7 +47,8 @@ class TestOrder:
         order = Order(
             symbol="au2406C480",
             exchange_id="SHFE",
-            direction="BUY",
+            direction=Direction.BUY,
+            offset=Offset.OPEN,
             volume=1,
             price=15.0,
             order_type=OrderType.LIMIT,
@@ -60,7 +64,8 @@ class TestOrder:
         order = Order(
             symbol="au2406C480",
             exchange_id="SHFE",
-            direction="BUY",
+            direction=Direction.BUY,
+            offset=Offset.OPEN,
             volume=1,
             price=15.0,
             order_type=OrderType.LIMIT,
@@ -85,7 +90,8 @@ class TestOrder:
         order = Order(
             symbol="au2406C480",
             exchange_id="SHFE",
-            direction="BUY",
+            direction=Direction.BUY,
+            offset=Offset.OPEN,
             volume=1,
             price=15.0,
             order_type=OrderType.LIMIT,
@@ -135,7 +141,7 @@ class TestOrderExecutor:
 
     def test_create_order_from_signal(self, executor, sample_signal):
         """测试从信号创建订单"""
-        order = executor.create_order(sample_signal)
+        order = executor.create_order_from_signal(sample_signal)
 
         assert order.symbol == "au2406C480"
         assert order.exchange_id == "SHFE"
@@ -149,7 +155,7 @@ class TestOrderExecutor:
 
     def test_create_order_with_market_type(self, executor, sample_signal):
         """测试创建市价订单"""
-        order = executor.create_order(
+        order = executor.create_order_from_signal(
             sample_signal,
             order_type=OrderType.MARKET
         )
@@ -158,7 +164,7 @@ class TestOrderExecutor:
 
     def test_create_order_with_custom_exchange(self, executor, sample_signal):
         """测试创建指定交易所的订单"""
-        order = executor.create_order(
+        order = executor.create_order_from_signal(
             sample_signal,
             exchange_id="DCE"
         )
@@ -167,16 +173,16 @@ class TestOrderExecutor:
 
     def test_order_stored_in_executor(self, executor, sample_signal):
         """测试订单存储在执行器中"""
-        order = executor.create_order(sample_signal)
+        order = executor.create_order_from_signal(sample_signal)
 
         assert order.order_id in executor._orders
         assert executor.get_order(order.order_id) == order
 
     def test_order_id_increments(self, executor, sample_signal):
         """测试订单ID递增"""
-        order1 = executor.create_order(sample_signal)
-        order2 = executor.create_order(sample_signal)
-        order3 = executor.create_order(sample_signal)
+        order1 = executor.create_order_from_signal(sample_signal)
+        order2 = executor.create_order_from_signal(sample_signal)
+        order3 = executor.create_order_from_signal(sample_signal)
 
         assert executor._order_counter == 3
         # 验证ID不同
@@ -235,7 +241,8 @@ class TestOrderStatusTransitions:
         return Order(
             symbol="au2406C480",
             exchange_id="SHFE",
-            direction="BUY",
+            direction=Direction.BUY,
+            offset=Offset.OPEN,
             volume=1,
             price=15.0,
             order_type=OrderType.LIMIT,
@@ -256,7 +263,7 @@ class TestOrderStatusTransitions:
 
     def test_submit_order(self, executor, sample_order):
         """测试提交订单"""
-        result = executor.submit_order(sample_order)
+        result = executor.submit_order_sync(sample_order)
 
         assert result.success is True
         assert result.message == "订单已提交"
@@ -264,7 +271,7 @@ class TestOrderStatusTransitions:
 
     def test_fill_order(self, executor, sample_order):
         """测试订单成交"""
-        executor.submit_order(sample_order)
+        executor.submit_order_sync(sample_order)
         result = executor.fill_order(
             sample_order,
             filled_volume=1,
@@ -280,7 +287,7 @@ class TestOrderStatusTransitions:
     def test_fill_order_slippage(self, executor, sample_order):
         """测试订单成交滑点计算"""
         sample_order.price = 15.0
-        executor.submit_order(sample_order)
+        executor.submit_order_sync(sample_order)
         result = executor.fill_order(
             sample_order,
             filled_volume=1,
@@ -294,12 +301,13 @@ class TestOrderStatusTransitions:
         market_order = Order(
             symbol="au2406C480",
             exchange_id="SHFE",
-            direction="BUY",
+            direction=Direction.BUY,
+            offset=Offset.OPEN,
             volume=1,
             price=None,  # 市价单无价格
             order_type=OrderType.MARKET,
         )
-        executor.submit_order(market_order)
+        executor.submit_order_sync(market_order)
         result = executor.fill_order(
             market_order,
             filled_volume=1,
@@ -310,8 +318,8 @@ class TestOrderStatusTransitions:
 
     def test_cancel_active_order(self, executor, sample_order):
         """测试取消活跃订单"""
-        executor.submit_order(sample_order)
-        result = executor.cancel_order(sample_order, reason="用户取消")
+        executor.submit_order_sync(sample_order)
+        result = executor.cancel_order_sync(sample_order, reason="用户取消")
 
         assert result.success is True
         assert "订单已取消" in result.message
@@ -319,26 +327,26 @@ class TestOrderStatusTransitions:
 
     def test_cancel_pending_order(self, executor, sample_order):
         """测试取消待处理订单"""
-        result = executor.cancel_order(sample_order, reason="用户取消")
+        result = executor.cancel_order_sync(sample_order, reason="用户取消")
 
         assert result.success is True
         assert sample_order.status == OrderStatus.CANCELLED
 
     def test_cancel_filled_order_fails(self, executor, sample_order):
         """测试取消已成交订单失败"""
-        executor.submit_order(sample_order)
+        executor.submit_order_sync(sample_order)
         executor.fill_order(sample_order, 1, 15.0)
 
-        result = executor.cancel_order(sample_order, reason="尝试取消")
+        result = executor.cancel_order_sync(sample_order, reason="尝试取消")
 
         assert result.success is False
         assert result.message == "订单不可取消"
 
     def test_cancel_cancelled_order_fails(self, executor, sample_order):
         """测试取消已取消订单失败"""
-        executor.cancel_order(sample_order, reason="第一次取消")
+        executor.cancel_order_sync(sample_order, reason="第一次取消")
 
-        result = executor.cancel_order(sample_order, reason="再次取消")
+        result = executor.cancel_order_sync(sample_order, reason="再次取消")
 
         assert result.success is False
         assert result.message == "订单不可取消"
@@ -346,13 +354,13 @@ class TestOrderStatusTransitions:
     def test_full_order_lifecycle(self, executor, sample_signal):
         """测试完整订单生命周期"""
         # 1. 创建订单
-        order = executor.create_order(sample_signal)
+        order = executor.create_order_from_signal(sample_signal)
         assert order.status == OrderStatus.PENDING
         assert order.is_active() is True
         assert order.is_complete() is False
 
         # 2. 提交订单
-        result = executor.submit_order(order)
+        result = executor.submit_order_sync(order)
         assert result.success is True
         assert order.status == OrderStatus.SUBMITTED
         assert order.is_active() is True
@@ -401,16 +409,16 @@ class TestOrderFiltering:
             strategy_type="test",
         )
 
-        order1 = executor.create_order(signal1)
-        order2 = executor.create_order(signal2)
-        order3 = executor.create_order(signal3)
+        order1 = executor.create_order_from_signal(signal1)
+        order2 = executor.create_order_from_signal(signal2)
+        order3 = executor.create_order_from_signal(signal3)
 
         # 所有订单都是 PENDING，应该全部活跃
         active_orders = executor.get_active_orders()
         assert len(active_orders) == 3
 
         # 提交并成交 order1
-        executor.submit_order(order1)
+        executor.submit_order_sync(order1)
         executor.fill_order(order1, 1, 15.0)
 
         active_orders = executor.get_active_orders()
@@ -420,7 +428,7 @@ class TestOrderFiltering:
         assert order3 in active_orders
 
         # 取消 order2
-        executor.cancel_order(order2)
+        executor.cancel_order_sync(order2)
 
         active_orders = executor.get_active_orders()
         assert len(active_orders) == 1
@@ -445,15 +453,15 @@ class TestOrderFiltering:
             strategy_type="test",
         )
 
-        order1 = executor.create_order(signal1)
-        order2 = executor.create_order(signal2)
+        order1 = executor.create_order_from_signal(signal1)
+        order2 = executor.create_order_from_signal(signal2)
 
         # 所有订单都是 PENDING
         pending_orders = executor.get_pending_orders()
         assert len(pending_orders) == 2
 
         # 提交 order1
-        executor.submit_order(order1)
+        executor.submit_order_sync(order1)
 
         pending_orders = executor.get_pending_orders()
         assert len(pending_orders) == 1
@@ -471,7 +479,7 @@ class TestOrderFiltering:
             strategy_type="test",
         )
 
-        order = executor.create_order(signal)
+        order = executor.create_order_from_signal(signal)
 
         found_order = executor.get_order(order.order_id)
         assert found_order == order
@@ -488,7 +496,8 @@ class TestOrderResult:
         order = Order(
             symbol="au2406C480",
             exchange_id="SHFE",
-            direction="BUY",
+            direction=Direction.BUY,
+            offset=Offset.OPEN,
             volume=1,
             price=15.0,
             order_type=OrderType.LIMIT,
@@ -511,7 +520,8 @@ class TestOrderResult:
         order = Order(
             symbol="au2406C480",
             exchange_id="SHFE",
-            direction="BUY",
+            direction=Direction.BUY,
+            offset=Offset.OPEN,
             volume=1,
             price=15.0,
             order_type=OrderType.LIMIT,

@@ -67,12 +67,6 @@ SCRIPTS_TO_RUN = [
         'description': '分析期权标的期货合约的行情数据'
     },
     {
-        'name': '期货开仓方向',
-        'path': '08wisecoin_symbol_lsn.py',
-        'type': 'python',
-        'description': '期货开仓方向'
-    },
-    {
         'name': '标的期货K线',
         'path': '09wisecoin-futures-klines.py',
         'type': 'python',

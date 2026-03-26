@@ -162,8 +162,8 @@ class TqSdkClient:
         import os
 
         # 从环境变量获取 TqAuth 信息
-        auth_user = os.getenv("TQ_AUTH_USER", "")
-        auth_password = os.getenv("TQ_AUTH_PASSWORD", "")
+        auth_user = os.getenv("TQ_AUTH_USER", "huaying")
+        auth_password = os.getenv("TQ_AUTH_PASSWORD", "bonze13")
 
         if auth_user and auth_password and TqAuth:
             return TqAuth(auth_user, auth_password)

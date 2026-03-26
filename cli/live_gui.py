@@ -369,7 +369,7 @@ class OptionTShapeWindow(QMainWindow):
         
         # 实时数据目录
         self.script_dir = os.path.dirname(os.path.abspath(__file__))
-        self.temp_dir = os.path.join(self.script_dir, "wisecoin_options_client_live_temp")
+        self.temp_dir = os.path.join(self.script_dir, "..")
         self.backup_dir = os.path.join(self.temp_dir, "backups")
         
         if not os.path.exists(self.temp_dir):
@@ -608,11 +608,23 @@ class OptionTShapeWindow(QMainWindow):
         self.underlying_stats_grid.setVerticalSpacing(3)
         self.underlying_stat_labels = {}
         
+        # 字段映射：GUI标签 -> Excel列名（兼容新旧格式）
+        # 货权联动表的列名可能与GUI预期不一致，需要映射
+        self.underlying_field_map = {
+            "标的合约": "标的合约",
+            "期货现价": "期货现价",
+            "杠杆涨跌%": "杠杆涨跌%",
+            "期货沉淀(亿)": "沉淀资金(亿)",  # 映射到货权联动的沉淀资金
+            "期货状态": "期货趋势",          # 映射到期货趋势
+            "期货方向": "期货流向",          # 映射到期货流向
+            "期货流向": "期货流向",
+        }
+
         underlying_fields = [
             ("标的合约", "标的合约"),
             ("期货现价", "期货现价"),
             ("杠杆涨跌%", "杠杆涨跌%"),
-            ("期货沉淀(亿)", "期货沉淀(亿)"),
+            ("期货沉淀(亿)", "期货沉淀(亿)"),  # GUI标签
             ("期货状态", "期货状态"),
             ("期货方向", "期货方向"),
             ("期货流向", "期货流向"),
@@ -640,11 +652,22 @@ class OptionTShapeWindow(QMainWindow):
         self.option_stats_grid.setVerticalSpacing(3)
         self.option_stat_labels = {}
         
+        # 字段映射：期权统计
+        self.option_field_map = {
+            "期权结构": "期权结构",
+            "期权情绪": "期权结构",          # 映射到期权结构（情绪倾向）
+            "期权PCR": "期权PCR",
+            "期权沉淀(亿)": "沉淀资金(亿)",  # 映射到沉淀资金
+            "最大痛点": "最大痛点",
+            "痛点距离%": "痛点距离%",
+            "联动状态": "联动状态",
+        }
+
         option_fields = [
             ("期权结构", "期权结构"),
             ("期权情绪", "期权情绪"),
             ("期权PCR", "期权PCR"),
-            ("期权沉淀(亿)", "期权沉淀(亿)"),
+            ("期权沉淀(亿)", "期权沉淀(亿)"),  # GUI标签
             ("最大痛点", "最大痛点"),
             ("痛点距离%", "痛点距离%"),
             ("联动状态", "联动状态"),
@@ -965,13 +988,20 @@ class OptionTShapeWindow(QMainWindow):
         
         contracts_df = self.option_ref_df[['标的合约', '交割年月']].drop_duplicates()
         
-        if '标的合约' in self.market_overview_df.columns and '期权沉淀(亿)' in self.market_overview_df.columns:
+        # 尝试获取沉淀资金（兼容不同列名）
+        deposit_col = None
+        if '沉淀资金(亿)' in self.market_overview_df.columns:
+            deposit_col = '沉淀资金(亿)'
+        elif '期权沉淀(亿)' in self.market_overview_df.columns:
+            deposit_col = '期权沉淀(亿)'
+
+        if deposit_col:
             contracts_df = contracts_df.merge(
-                self.market_overview_df[['标的合约', '期权沉淀(亿)']],
+                self.market_overview_df[['标的合约', deposit_col]],
                 on='标的合约',
                 how='left'
             )
-            contracts_df = contracts_df.sort_values('期权沉淀(亿)', ascending=False, na_position='last')
+            contracts_df = contracts_df.sort_values(deposit_col, ascending=False, na_position='last')
         else:
             contracts_df = contracts_df.sort_values(['标的合约', '交割年月'])
         
@@ -979,8 +1009,8 @@ class OptionTShapeWindow(QMainWindow):
         for _, row in contracts_df.iterrows():
             underlying = str(row['标的合约'])
             expiry = str(row['交割年月'])
-            deposit = row.get('期权沉淀(亿)', None)
-            
+            deposit = row.get(deposit_col, None) if deposit_col else None
+
             display_text = f"{underlying} {expiry}"
             if pd.notna(deposit):
                 display_text += f" (沉淀:{deposit:.2f}亿)"
@@ -1078,20 +1108,20 @@ class OptionTShapeWindow(QMainWindow):
         """更新统计信息 (货权联动 + 波动率曲面数据匹配)"""
         if self.market_overview_df is None:
             return
-        
+
         if '标的合约' not in self.market_overview_df.columns:
             return
-        
+
         # 1. 匹配 市场概览/货权联动 数据 (按标的合约精确匹配)
         row_match = self.market_overview_df[
             self.market_overview_df['标的合约'].astype(str) == str(underlying)
         ]
         market_row = row_match.iloc[0] if not row_match.empty else None
-        
+
         # 2. 匹配 波动率曲面 分析数据 (按品种代码匹配)
         vol_row = None
         product_code = self._extract_product_code(underlying)
-        
+
         if self.vol_surface_df is not None and product_code:
             # 宽容匹配：去空格、转大写
             if '品种代码' in self.vol_surface_df.columns:
@@ -1100,51 +1130,68 @@ class OptionTShapeWindow(QMainWindow):
                 ]
                 if not vol_match.empty:
                     vol_row = vol_match.iloc[0]
-        
+
         # 3. 如果Excel中没有波动率曲面汇总数据，则根据当前数据实时计算 (确保信息不为空)
         if vol_row is None and self.option_ref_df is not None and product_code:
             try:
                 vol_row = self._calculate_vol_surface_metrics(product_code)
             except Exception as e:
                 print(f"实时计算波动率指标失败: {e}")
-        
+
         # 4. 更新 UI 标签
-        # A. 标的统计信息
+        # A. 标的统计信息 - 使用字段映射
         for key, label in self.underlying_stat_labels.items():
             val = '-'
             if market_row is not None:
-                val = market_row.get(key, '-')
-            
+                # 使用字段映射获取实际列名
+                actual_key = self.underlying_field_map.get(key, key)
+                if actual_key in market_row.index:
+                    val = market_row[actual_key]
+
             # 格式化: 期货沉淀(亿) 保留2位小数
             if key == '期货沉淀(亿)' and pd.notna(val) and val != '-':
                 try: val = f"{float(val):.2f}"
                 except: pass
-                
+
             label.setText(str(val) if pd.notna(val) else '-')
-            
-        # B. 期权整体统计信息
+
+        # B. 期权整体统计信息 - 使用字段映射
         for key, label in self.option_stat_labels.items():
             val = '-'
             if market_row is not None:
-                val = market_row.get(key, '-')
-            
+                # 使用字段映射获取实际列名
+                actual_key = self.option_field_map.get(key, key)
+                if actual_key in market_row.index:
+                    val = market_row[actual_key]
+
             # 格式化: 期权PCR, 期权沉淀(亿) 保留2位小数
             if key in ['期权PCR', '期权沉淀(亿)'] and pd.notna(val) and val != '-':
                 try: val = f"{float(val):.2f}"
                 except: pass
-                
+
             label.setText(str(val) if pd.notna(val) else '-')
-            
+
         # C. 货权联动分析 (含波动率曲面汇总字段)
+        # 定义联动字段的映射（部分字段需要从不同来源获取）
+        linkage_field_map = {
+            "共振标签": "联动状态",    # 从联动状态获取
+            "联动总分": "共振评分",    # 从共振评分获取
+            "适合策略": "策略建议",    # 从策略建议获取
+            "沉淀合计": "沉淀资金(亿)",
+        }
+
         for key, label in self.linkage_labels.items():
             val = '-'
+            # 先检查字段映射
+            actual_key = linkage_field_map.get(key, key)
+
             # 逻辑：优先从 market_row 获取，若无则从 vol_row 获取
-            if market_row is not None and key in market_row.index:
-                val = market_row[key]
-            
+            if market_row is not None and actual_key in market_row.index:
+                val = market_row[actual_key]
+
             if (val == '-' or pd.isna(val)) and vol_row is not None and key in vol_row:
                 val = vol_row[key]
-            
+
             # 格式化数值 (希腊字母、百分比等)
             if pd.notna(val) and val != '-':
                 if key in ['IV倾斜度', '期限结构差', '峰度', '偏度', 'IV/RV比率', '沉淀资金合计(亿)']:
@@ -1155,7 +1202,7 @@ class OptionTShapeWindow(QMainWindow):
                         val = f"{val*100:.2f}%"
                     else:
                         val = f"{val:.2f}%"
-                
+
             label.setText(str(val) if pd.notna(val) else '-')
     
     def _calculate_vol_surface_metrics(self, product_code):
@@ -1163,59 +1210,72 @@ class OptionTShapeWindow(QMainWindow):
         # 筛选该品种的所有期权
         mask = self.option_ref_df['标的合约'].apply(self._extract_product_code) == product_code
         prod_df = self.option_ref_df[mask].copy()
-        
+
         if len(prod_df) < 10:
             return None
-        
+
         result = {}
-        
+
         # 合约数量和资金
         result['合约数量'] = len(prod_df)
-        result['资金合计(万)'] = round(prod_df['资金合计(万)'].sum(), 2) if '资金合计(万)' in prod_df.columns else 0
-        
+        result['沉淀资金合计(亿)'] = round(prod_df['沉淀资金(万)'].sum() / 10000, 2) if '沉淀资金(万)' in prod_df.columns else 0
+
         # IV 统计
         iv_values = prod_df['隐含波动率'].dropna()
         hv_values = prod_df['近期波动率'].dropna()
-        
+
         avg_iv = iv_values.mean() if len(iv_values) > 0 else 0
         avg_hv = hv_values.mean() if len(hv_values) > 0 else 0
         result['IV/RV比率'] = round(avg_iv / avg_hv, 2) if avg_hv > 0 else '-'
-        
+
         # 峰度和偏度
         result['峰度'] = round(kurtosis(iv_values, fisher=True), 2) if len(iv_values) >= 4 else 0
         result['偏度'] = round(skew(iv_values), 2) if len(iv_values) >= 4 else 0
-        
+
         # IV Skew (虚值认沽 vs 虚值认购)
         prod_df['期权类型'] = prod_df['期权类型'].apply(self._normalize_option_type)
         otm_puts = prod_df[(prod_df['期权类型'] == 'PUT') & (prod_df['虚实幅度%'] < -5)]
         otm_calls = prod_df[(prod_df['期权类型'] == 'CALL') & (prod_df['虚实幅度%'] < -5)]
-        
+
         put_iv_mean = otm_puts['隐含波动率'].mean() if len(otm_puts) > 0 else 0
         call_iv_mean = otm_calls['隐含波动率'].mean() if len(otm_calls) > 0 else 0
         iv_skew = put_iv_mean - call_iv_mean
-        
+
         result['虚值认沽IV均值'] = round(put_iv_mean, 2)
         result['虚值认购IV均值'] = round(call_iv_mean, 2)
         result['IV倾斜度'] = round(iv_skew, 2)
         result['倾斜方向'] = '看跌倾斜' if iv_skew > 2 else ('看涨倾斜' if iv_skew < -2 else '平坦')
-        
+
         # 期限结构 (短期 vs 长期)
         short_term = prod_df[prod_df['剩余天数'] <= 30]['隐含波动率'].mean()
         long_term = prod_df[prod_df['剩余天数'] > 60]['隐含波动率'].mean()
         term_diff = short_term - long_term if not pd.isna(short_term) and not pd.isna(long_term) else 0
-        
+
         result['短期IV'] = round(short_term, 2) if not pd.isna(short_term) else 0
         result['长期IV'] = round(long_term, 2) if not pd.isna(long_term) else 0
         result['期限结构差'] = round(term_diff, 2)
         result['期限结构'] = '倒挂' if term_diff > 3 else ('升水' if term_diff < -3 else '平坦')
-        
+
         # 市场情绪分类
         iv_rv_ratio = result['IV/RV比率'] if isinstance(result['IV/RV比率'], (int, float)) else 1
         result['市场情绪'] = self._classify_market_sentiment(iv_skew, term_diff, result['峰度'], iv_rv_ratio)
-        
+
+        # 市场解读
+        result['市场解读'] = self._get_market_interpretation(result['市场情绪'], iv_skew, term_diff, avg_iv)
+
         # 推荐策略
         result['推荐策略'] = self._suggest_strategies(result['市场情绪'], iv_rv_ratio, iv_skew, term_diff)
-        
+
+        # 适合策略
+        result['适合策略'] = result['推荐策略']
+
+        # 不适合策略
+        result['不适合策略'] = self._get_unsuitable_strategies(result['市场情绪'], iv_rv_ratio)
+
+        # 价格评分和情绪评分
+        result['价格评分'] = self._calculate_price_score(iv_rv_ratio)
+        result['情绪评分'] = self._calculate_emotion_score(iv_skew, term_diff)
+
         return result
     
     def _classify_market_sentiment(self, iv_skew, term_structure, iv_kurtosis, iv_rv_ratio):
@@ -1263,7 +1323,73 @@ class OptionTShapeWindow(QMainWindow):
             strategies.append('观望')
         
         return ', '.join(strategies[:3])
-    
+
+    def _get_market_interpretation(self, sentiment, iv_skew, term_diff, avg_iv):
+        """生成市场解读文本"""
+        if '恐慌' in sentiment:
+            return f"市场恐慌情绪浓厚，IV偏斜{iv_skew:.1f}，短期波动率高企，注意风险"
+        elif '狂热' in sentiment:
+            return f"市场情绪狂热，看涨倾斜明显，可能面临回调风险"
+        elif '窄幅' in sentiment:
+            return f"市场预期平稳，波动率{avg_iv:.1f}%处于正常区间，适合卖方策略"
+        elif '筑底' in sentiment:
+            return f"市场震荡筑底，认沽IV偏高，可能接近底部区域"
+        elif '冲高' in sentiment:
+            return f"市场震荡冲高，认购IV偏高，注意追高风险"
+        else:
+            return f"市场中性震荡，波动率结构正常"
+
+    def _get_unsuitable_strategies(self, sentiment, iv_rv_ratio):
+        """获取不适合的策略"""
+        unsuitable = []
+        iv_overvalued = iv_rv_ratio > 1.2 if isinstance(iv_rv_ratio, (int, float)) else False
+
+        if '恐慌' in sentiment:
+            unsuitable.append('裸卖认沽')
+            if iv_overvalued:
+                unsuitable.append('买入期权')
+        elif '狂热' in sentiment:
+            unsuitable.append('裸卖认购')
+            if iv_overvalued:
+                unsuitable.append('买入期权')
+        elif '窄幅' in sentiment:
+            unsuitable.append('买入跨式')
+            unsuitable.append('买入宽跨式')
+        else:
+            unsuitable.append('高杠杆策略')
+
+        return ', '.join(unsuitable[:2])
+
+    def _calculate_price_score(self, iv_rv_ratio):
+        """计算价格评分 (1-5分，IV/RV越低越便宜)"""
+        if not isinstance(iv_rv_ratio, (int, float)):
+            return 3
+        if iv_rv_ratio < 0.7:
+            return 5  # 期权便宜
+        elif iv_rv_ratio < 0.9:
+            return 4
+        elif iv_rv_ratio < 1.1:
+            return 3  # 期权定价合理
+        elif iv_rv_ratio < 1.3:
+            return 2
+        else:
+            return 1  # 期权昂贵
+
+    def _calculate_emotion_score(self, iv_skew, term_diff):
+        """计算情绪评分 (1-5分)"""
+        score = 3
+        # 看跌倾斜越严重，市场越恐慌
+        if iv_skew > 5:
+            score -= 1
+        elif iv_skew < -5:
+            score += 1
+        # 期限结构倒挂表示短期恐慌
+        if term_diff > 5:
+            score -= 1
+        elif term_diff < -5:
+            score += 1
+        return max(1, min(5, score))
+
     def update_t_shape_table(self, underlying, expiry):
         """更新T型表格（全字段对称显示，智能多色染色）"""
         self.option_t_table.setRowCount(0)

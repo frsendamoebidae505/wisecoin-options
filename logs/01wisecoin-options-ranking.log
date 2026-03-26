@@ -1,0 +1,262 @@
+2026-03-26 09:18:34,688 - 01wisecoin-options-ranking - INFO - info:26 - 模式2，期权策略开始运行。
+2026-03-26 09:18:34,950 - 01wisecoin-options-ranking - INFO - info:26 - 获取到27630个期权合约（已过滤股票期权）
+2026-03-26 09:18:34,950 - 01wisecoin-options-ranking - INFO - info:26 - 正在获取 27630 个合约的详细信息...
+2026-03-26 09:18:35,060 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 500/27630 个合约信息
+2026-03-26 09:18:35,250 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 1000/27630 个合约信息
+2026-03-26 09:18:35,394 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 1500/27630 个合约信息
+2026-03-26 09:18:35,592 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 2000/27630 个合约信息
+2026-03-26 09:18:35,727 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 2500/27630 个合约信息
+2026-03-26 09:18:35,923 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 3000/27630 个合约信息
+2026-03-26 09:18:36,115 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 3500/27630 个合约信息
+2026-03-26 09:18:36,261 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 4000/27630 个合约信息
+2026-03-26 09:18:36,448 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 4500/27630 个合约信息
+2026-03-26 09:18:36,637 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 5000/27630 个合约信息
+2026-03-26 09:18:36,770 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 5500/27630 个合约信息
+2026-03-26 09:18:36,973 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 6000/27630 个合约信息
+2026-03-26 09:18:37,262 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 6500/27630 个合约信息
+2026-03-26 09:18:37,515 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 7000/27630 个合约信息
+2026-03-26 09:18:37,651 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 7500/27630 个合约信息
+2026-03-26 09:18:37,809 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 8000/27630 个合约信息
+2026-03-26 09:18:38,020 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 8500/27630 个合约信息
+2026-03-26 09:18:38,152 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 9000/27630 个合约信息
+2026-03-26 09:18:38,287 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 9500/27630 个合约信息
+2026-03-26 09:18:38,546 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 10000/27630 个合约信息
+2026-03-26 09:18:38,675 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 10500/27630 个合约信息
+2026-03-26 09:18:38,822 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 11000/27630 个合约信息
+2026-03-26 09:18:39,070 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 11500/27630 个合约信息
+2026-03-26 09:18:39,204 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 12000/27630 个合约信息
+2026-03-26 09:18:39,368 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 12500/27630 个合约信息
+2026-03-26 09:18:39,734 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 13000/27630 个合约信息
+2026-03-26 09:18:39,897 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 13500/27630 个合约信息
+2026-03-26 09:18:40,116 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 14000/27630 个合约信息
+2026-03-26 09:18:40,307 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 14500/27630 个合约信息
+2026-03-26 09:18:40,467 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 15000/27630 个合约信息
+2026-03-26 09:18:40,690 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 15500/27630 个合约信息
+2026-03-26 09:18:40,834 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 16000/27630 个合约信息
+2026-03-26 09:18:40,965 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 16500/27630 个合约信息
+2026-03-26 09:18:41,169 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 17000/27630 个合约信息
+2026-03-26 09:18:41,358 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 17500/27630 个合约信息
+2026-03-26 09:18:41,492 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 18000/27630 个合约信息
+2026-03-26 09:18:41,693 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 18500/27630 个合约信息
+2026-03-26 09:18:41,890 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 19000/27630 个合约信息
+2026-03-26 09:18:42,028 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 19500/27630 个合约信息
+2026-03-26 09:18:42,217 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 20000/27630 个合约信息
+2026-03-26 09:18:42,408 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 20500/27630 个合约信息
+2026-03-26 09:18:42,540 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 21000/27630 个合约信息
+2026-03-26 09:18:42,739 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 21500/27630 个合约信息
+2026-03-26 09:18:43,177 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 22000/27630 个合约信息
+2026-03-26 09:18:43,364 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 22500/27630 个合约信息
+2026-03-26 09:18:43,782 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 23000/27630 个合约信息
+2026-03-26 09:18:43,997 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 23500/27630 个合约信息
+2026-03-26 09:18:44,609 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 24000/27630 个合约信息
+2026-03-26 09:18:44,838 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 24500/27630 个合约信息
+2026-03-26 09:18:45,375 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 25000/27630 个合约信息
+2026-03-26 09:18:45,554 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 25500/27630 个合约信息
+2026-03-26 09:18:46,187 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 26000/27630 个合约信息
+2026-03-26 09:18:46,409 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 26500/27630 个合约信息
+2026-03-26 09:18:46,936 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 27000/27630 个合约信息
+2026-03-26 09:18:47,123 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 27500/27630 个合约信息
+2026-03-26 09:18:47,171 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 27630/27630 个合约信息
+2026-03-26 09:18:47,178 - 01wisecoin-options-ranking - INFO - info:26 - 正在按产品分类导出到 wisecoin-期权品种.xlsx...
+2026-03-26 09:18:51,986 - 01wisecoin-options-ranking - INFO - info:26 - 成功将 27630 个期权合约按 65 个产品分类导出到 wisecoin-期权品种.xlsx
+2026-03-26 09:18:51,988 - 01wisecoin-options-ranking - INFO - info:26 - 正在从 wisecoin-期权品种.xlsx 读取期权品种并获取行情...
+2026-03-26 09:18:54,798 - 01wisecoin-options-ranking - INFO - info:26 - 共需同步 27630 个期权合约，当前实际待同步 27630 个
+2026-03-26 09:18:54,798 - 01wisecoin-options-ranking - INFO - info:26 - 开始同步行情数据 (参考 wisecoin_trade_01_data.py 的逐个 await 方式，每批 50 个订阅)...
+2026-03-26 09:18:54,891 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 200/27630 (0.7%)
+2026-03-26 09:18:55,057 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 400/27630 (1.4%)
+2026-03-26 09:18:55,153 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 600/27630 (2.2%)
+2026-03-26 09:18:55,366 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 800/27630 (2.9%)
+2026-03-26 09:18:55,553 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 1000/27630 (3.6%)
+2026-03-26 09:18:55,665 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 1200/27630 (4.3%)
+2026-03-26 09:18:55,885 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 1400/27630 (5.1%)
+2026-03-26 09:18:56,082 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 1600/27630 (5.8%)
+2026-03-26 09:18:56,951 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 1800/27630 (6.5%)
+2026-03-26 09:18:59,214 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 2000/27630 (7.2%)
+2026-03-26 09:19:01,344 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 2200/27630 (8.0%)
+2026-03-26 09:19:03,924 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 2400/27630 (8.7%)
+2026-03-26 09:19:06,594 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 2600/27630 (9.4%)
+2026-03-26 09:19:09,838 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 2800/27630 (10.1%)
+2026-03-26 09:19:12,814 - 01wisecoin-options-ranking - INFO - info:26 -   [保存进度] 正在更新 Excel 数据 (3000/27630)...
+2026-03-26 09:19:14,485 - 01wisecoin-options-ranking - INFO - info:26 -   [保存进度] 正在更新 Excel 数据 (3000/27630)...
+2026-03-26 09:19:16,164 - 01wisecoin-options-ranking - INFO - info:26 - ⚙️ 达到重建阈值，准备重建 TqApi，第 1 次重建
+2026-03-26 09:19:16,164 - 01wisecoin-options-ranking - WARNING - warning:31 - 关闭现有 api 失败: 不能在协程中调用 close, 如需关闭 api 实例需在 wait_update 返回后再关闭
+2026-03-26 09:19:17,143 - 01wisecoin-options-ranking - INFO - info:26 - ✅ TqApi 重建完成，继续获取行情...
+2026-03-26 09:19:17,143 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 3000/27630 (10.9%)
+2026-03-26 09:19:17,364 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 3200/27630 (11.6%)
+2026-03-26 09:19:17,565 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 3400/27630 (12.3%)
+2026-03-26 09:19:17,685 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 3600/27630 (13.0%)
+2026-03-26 09:19:17,908 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 3800/27630 (13.8%)
+2026-03-26 09:19:18,105 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 4000/27630 (14.5%)
+2026-03-26 09:19:18,232 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 4200/27630 (15.2%)
+2026-03-26 09:19:18,460 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 4400/27630 (15.9%)
+2026-03-26 09:19:18,625 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 4600/27630 (16.6%)
+2026-03-26 09:19:18,760 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 4800/27630 (17.4%)
+2026-03-26 09:19:18,978 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 5000/27630 (18.1%)
+2026-03-26 09:19:20,151 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 5200/27630 (18.8%)
+2026-03-26 09:19:22,577 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 5400/27630 (19.5%)
+2026-03-26 09:19:25,418 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 5600/27630 (20.3%)
+2026-03-26 09:19:28,367 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 5800/27630 (21.0%)
+2026-03-26 09:19:31,054 - 01wisecoin-options-ranking - INFO - info:26 -   [保存进度] 正在更新 Excel 数据 (6000/27630)...
+2026-03-26 09:19:34,530 - 01wisecoin-options-ranking - INFO - info:26 -   [保存进度] 正在更新 Excel 数据 (6000/27630)...
+2026-03-26 09:19:37,750 - 01wisecoin-options-ranking - INFO - info:26 - ⚙️ 达到重建阈值，准备重建 TqApi，第 2 次重建
+2026-03-26 09:19:38,391 - 01wisecoin-options-ranking - INFO - info:26 - ✅ TqApi 重建完成，继续获取行情...
+2026-03-26 09:19:38,391 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 6000/27630 (21.7%)
+2026-03-26 09:19:38,543 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 6200/27630 (22.4%)
+2026-03-26 09:19:38,661 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 6400/27630 (23.2%)
+2026-03-26 09:19:38,885 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 6600/27630 (23.9%)
+2026-03-26 09:19:39,074 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 6800/27630 (24.6%)
+2026-03-26 09:19:39,219 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 7000/27630 (25.3%)
+2026-03-26 09:19:39,422 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 7200/27630 (26.1%)
+2026-03-26 09:19:39,603 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 7400/27630 (26.8%)
+2026-03-26 09:19:39,736 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 7600/27630 (27.5%)
+2026-03-26 09:19:39,947 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 7800/27630 (28.2%)
+2026-03-26 09:19:40,129 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 8000/27630 (29.0%)
+2026-03-26 09:19:42,030 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 8200/27630 (29.7%)
+2026-03-26 09:19:44,627 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 8400/27630 (30.4%)
+2026-03-26 09:19:47,290 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 8600/27630 (31.1%)
+2026-03-26 09:19:50,274 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 8800/27630 (31.8%)
+2026-03-26 09:19:53,403 - 01wisecoin-options-ranking - INFO - info:26 -   [保存进度] 正在更新 Excel 数据 (9000/27630)...
+2026-03-26 09:19:58,386 - 01wisecoin-options-ranking - INFO - info:26 -   [保存进度] 正在更新 Excel 数据 (9000/27630)...
+2026-03-26 09:20:03,295 - 01wisecoin-options-ranking - INFO - info:26 - ⚙️ 达到重建阈值，准备重建 TqApi，第 3 次重建
+2026-03-26 09:20:04,704 - 01wisecoin-options-ranking - INFO - info:26 - ✅ TqApi 重建完成，继续获取行情...
+2026-03-26 09:20:04,704 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 9000/27630 (32.6%)
+2026-03-26 09:20:04,848 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 9200/27630 (33.3%)
+2026-03-26 09:20:05,063 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 9400/27630 (34.0%)
+2026-03-26 09:20:05,289 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 9600/27630 (34.7%)
+2026-03-26 09:20:05,431 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 9800/27630 (35.5%)
+2026-03-26 09:20:05,624 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 10000/27630 (36.2%)
+2026-03-26 09:20:05,840 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 10200/27630 (36.9%)
+2026-03-26 09:20:05,967 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 10400/27630 (37.6%)
+2026-03-26 09:20:06,156 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 10600/27630 (38.4%)
+2026-03-26 09:20:06,392 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 10800/27630 (39.1%)
+2026-03-26 09:20:06,624 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 11000/27630 (39.8%)
+2026-03-26 09:20:08,719 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 11200/27630 (40.5%)
+2026-03-26 09:20:11,425 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 11400/27630 (41.3%)
+2026-03-26 09:20:14,018 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 11600/27630 (42.0%)
+2026-03-26 09:20:17,364 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 11800/27630 (42.7%)
+2026-03-26 09:20:20,160 - 01wisecoin-options-ranking - INFO - info:26 -   [保存进度] 正在更新 Excel 数据 (12000/27630)...
+2026-03-26 09:20:26,593 - 01wisecoin-options-ranking - INFO - info:26 -   [保存进度] 正在更新 Excel 数据 (12000/27630)...
+2026-03-26 09:20:33,090 - 01wisecoin-options-ranking - INFO - info:26 - ⚙️ 达到重建阈值，准备重建 TqApi，第 4 次重建
+2026-03-26 09:20:33,755 - 01wisecoin-options-ranking - INFO - info:26 - ✅ TqApi 重建完成，继续获取行情...
+2026-03-26 09:20:33,755 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 12000/27630 (43.4%)
+2026-03-26 09:20:33,923 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 12200/27630 (44.2%)
+2026-03-26 09:20:34,131 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 12400/27630 (44.9%)
+2026-03-26 09:20:34,252 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 12600/27630 (45.6%)
+2026-03-26 09:20:34,455 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 12800/27630 (46.3%)
+2026-03-26 09:20:34,650 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 13000/27630 (47.1%)
+2026-03-26 09:20:34,788 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 13200/27630 (47.8%)
+2026-03-26 09:20:34,983 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 13400/27630 (48.5%)
+2026-03-26 09:20:35,175 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 13600/27630 (49.2%)
+2026-03-26 09:20:35,318 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 13800/27630 (49.9%)
+2026-03-26 09:20:35,508 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 14000/27630 (50.7%)
+2026-03-26 09:20:37,276 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 14200/27630 (51.4%)
+2026-03-26 09:20:39,699 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 14400/27630 (52.1%)
+2026-03-26 09:20:42,178 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 14600/27630 (52.8%)
+2026-03-26 09:20:44,946 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 14800/27630 (53.6%)
+2026-03-26 09:20:47,877 - 01wisecoin-options-ranking - INFO - info:26 -   [保存进度] 正在更新 Excel 数据 (15000/27630)...
+2026-03-26 09:20:55,453 - 01wisecoin-options-ranking - INFO - info:26 -   [保存进度] 正在更新 Excel 数据 (15000/27630)...
+2026-03-26 09:21:03,219 - 01wisecoin-options-ranking - INFO - info:26 - ⚙️ 达到重建阈值，准备重建 TqApi，第 5 次重建
+2026-03-26 09:21:03,811 - 01wisecoin-options-ranking - INFO - info:26 - ✅ TqApi 重建完成，继续获取行情...
+2026-03-26 09:21:03,812 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 15000/27630 (54.3%)
+2026-03-26 09:21:04,007 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 15200/27630 (55.0%)
+2026-03-26 09:21:04,131 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 15400/27630 (55.7%)
+2026-03-26 09:21:04,352 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 15600/27630 (56.5%)
+2026-03-26 09:21:04,535 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 15800/27630 (57.2%)
+2026-03-26 09:21:04,649 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 16000/27630 (57.9%)
+2026-03-26 09:21:05,087 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 16200/27630 (58.6%)
+2026-03-26 09:21:05,209 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 16400/27630 (59.4%)
+2026-03-26 09:21:05,402 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 16600/27630 (60.1%)
+2026-03-26 09:21:05,591 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 16800/27630 (60.8%)
+2026-03-26 09:21:05,710 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 17000/27630 (61.5%)
+2026-03-26 09:21:07,842 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 17200/27630 (62.3%)
+2026-03-26 09:21:10,601 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 17400/27630 (63.0%)
+2026-03-26 09:21:13,266 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 17600/27630 (63.7%)
+2026-03-26 09:21:16,411 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 17800/27630 (64.4%)
+2026-03-26 09:21:19,219 - 01wisecoin-options-ranking - INFO - info:26 -   [保存进度] 正在更新 Excel 数据 (18000/27630)...
+2026-03-26 09:21:28,225 - 01wisecoin-options-ranking - INFO - info:26 -   [保存进度] 正在更新 Excel 数据 (18000/27630)...
+2026-03-26 09:21:37,314 - 01wisecoin-options-ranking - INFO - info:26 - ⚙️ 达到重建阈值，准备重建 TqApi，第 6 次重建
+2026-03-26 09:21:39,106 - 01wisecoin-options-ranking - INFO - info:26 - ✅ TqApi 重建完成，继续获取行情...
+2026-03-26 09:21:39,106 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 18000/27630 (65.1%)
+2026-03-26 09:21:39,236 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 18200/27630 (65.9%)
+2026-03-26 09:21:39,445 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 18400/27630 (66.6%)
+2026-03-26 09:21:39,648 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 18600/27630 (67.3%)
+2026-03-26 09:21:39,795 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 18800/27630 (68.0%)
+2026-03-26 09:21:40,004 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 19000/27630 (68.8%)
+2026-03-26 09:21:40,193 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 19200/27630 (69.5%)
+2026-03-26 09:21:40,318 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 19400/27630 (70.2%)
+2026-03-26 09:21:40,529 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 19600/27630 (70.9%)
+2026-03-26 09:21:40,724 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 19800/27630 (71.7%)
+2026-03-26 09:21:40,858 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 20000/27630 (72.4%)
+2026-03-26 09:21:43,437 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 20200/27630 (73.1%)
+2026-03-26 09:21:45,543 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 20400/27630 (73.8%)
+2026-03-26 09:21:48,405 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 20600/27630 (74.6%)
+2026-03-26 09:21:51,483 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 20800/27630 (75.3%)
+2026-03-26 09:21:54,482 - 01wisecoin-options-ranking - INFO - info:26 -   [保存进度] 正在更新 Excel 数据 (21000/27630)...
+2026-03-26 09:22:05,603 - 01wisecoin-options-ranking - INFO - info:26 -   [保存进度] 正在更新 Excel 数据 (21000/27630)...
+2026-03-26 09:22:16,145 - 01wisecoin-options-ranking - INFO - info:26 - ⚙️ 达到重建阈值，准备重建 TqApi，第 7 次重建
+2026-03-26 09:22:16,889 - 01wisecoin-options-ranking - INFO - info:26 - ✅ TqApi 重建完成，继续获取行情...
+2026-03-26 09:22:16,889 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 21000/27630 (76.0%)
+2026-03-26 09:22:17,021 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 21200/27630 (76.7%)
+2026-03-26 09:22:17,217 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 21400/27630 (77.5%)
+2026-03-26 09:22:17,403 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 21600/27630 (78.2%)
+2026-03-26 09:22:17,522 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 21800/27630 (78.9%)
+2026-03-26 09:22:17,731 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 22000/27630 (79.6%)
+2026-03-26 09:22:17,941 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 22200/27630 (80.3%)
+2026-03-26 09:22:18,071 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 22400/27630 (81.1%)
+2026-03-26 09:22:18,276 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 22600/27630 (81.8%)
+2026-03-26 09:22:18,465 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 22800/27630 (82.5%)
+2026-03-26 09:22:18,596 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 23000/27630 (83.2%)
+2026-03-26 09:22:19,089 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 23200/27630 (84.0%)
+2026-03-26 09:22:21,442 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 23400/27630 (84.7%)
+2026-03-26 09:22:23,570 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 23600/27630 (85.4%)
+2026-03-26 09:22:26,354 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 23800/27630 (86.1%)
+2026-03-26 09:22:29,235 - 01wisecoin-options-ranking - INFO - info:26 -   [保存进度] 正在更新 Excel 数据 (24000/27630)...
+2026-03-26 09:22:41,335 - 01wisecoin-options-ranking - INFO - info:26 -   [保存进度] 正在更新 Excel 数据 (24000/27630)...
+2026-03-26 09:22:54,058 - 01wisecoin-options-ranking - INFO - info:26 - ⚙️ 达到重建阈值，准备重建 TqApi，第 8 次重建
+2026-03-26 09:22:54,732 - 01wisecoin-options-ranking - INFO - info:26 - ✅ TqApi 重建完成，继续获取行情...
+2026-03-26 09:22:54,732 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 24000/27630 (86.9%)
+2026-03-26 09:22:54,973 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 24200/27630 (87.6%)
+2026-03-26 09:22:55,175 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 24400/27630 (88.3%)
+2026-03-26 09:22:55,305 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 24600/27630 (89.0%)
+2026-03-26 09:22:55,494 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 24800/27630 (89.8%)
+2026-03-26 09:22:55,712 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 25000/27630 (90.5%)
+2026-03-26 09:22:56,176 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 25200/27630 (91.2%)
+2026-03-26 09:22:56,308 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 25400/27630 (91.9%)
+2026-03-26 09:22:56,530 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 25600/27630 (92.7%)
+2026-03-26 09:22:56,752 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 25800/27630 (93.4%)
+2026-03-26 09:22:56,884 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 26000/27630 (94.1%)
+2026-03-26 09:22:58,435 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 26200/27630 (94.8%)
+2026-03-26 09:23:00,953 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 26400/27630 (95.5%)
+2026-03-26 09:23:03,638 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 26600/27630 (96.3%)
+2026-03-26 09:23:06,526 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 26800/27630 (97.0%)
+2026-03-26 09:23:09,677 - 01wisecoin-options-ranking - INFO - info:26 -   [保存进度] 正在更新 Excel 数据 (27000/27630)...
+2026-03-26 09:23:24,325 - 01wisecoin-options-ranking - INFO - info:26 -   [保存进度] 正在更新 Excel 数据 (27000/27630)...
+2026-03-26 09:23:37,435 - 01wisecoin-options-ranking - INFO - info:26 - ⚙️ 达到重建阈值，准备重建 TqApi，第 9 次重建
+2026-03-26 09:23:37,977 - 01wisecoin-options-ranking - INFO - info:26 - ✅ TqApi 重建完成，继续获取行情...
+2026-03-26 09:23:37,977 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 27000/27630 (97.7%)
+2026-03-26 09:23:38,144 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 27200/27630 (98.4%)
+2026-03-26 09:23:38,271 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 27400/27630 (99.2%)
+2026-03-26 09:23:38,481 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 27600/27630 (99.9%)
+2026-03-26 09:23:38,629 - 01wisecoin-options-ranking - INFO - info:26 -   [保存进度] 正在更新 Excel 数据 (27630/27630)...
+2026-03-26 09:23:52,533 - 01wisecoin-options-ranking - INFO - info:26 -   [行情同步] 进度: 27630/27630 (100.0%)
+2026-03-26 09:23:52,536 - 01wisecoin-options-ranking - INFO - info:26 - 🚀 行情数据获取及保存完成: wisecoin-期权行情.xlsx
+2026-03-26 09:23:52,560 - 01wisecoin-options-ranking - INFO - info:26 - 正在读取 wisecoin-期权行情.xlsx 以获取标的期货列表和字段模板...
+2026-03-26 09:24:00,272 - 01wisecoin-options-ranking - INFO - info:26 - 获取到 371 个标的期货合约，准备同步详细信息和行情...
+2026-03-26 09:24:00,701 - 01wisecoin-options-ranking - INFO - info:26 - 已同步期货行情: 200/371
+2026-03-26 09:24:00,807 - 01wisecoin-options-ranking - INFO - info:26 - 已同步期货行情: 371/371
+2026-03-26 09:24:00,815 - 01wisecoin-options-ranking - INFO - info:26 - 合约信息汇总完成: 371 条记录, 匹配字典大小: 371
+2026-03-26 09:24:00,815 - 01wisecoin-options-ranking - INFO - info:26 - 匹配测试: Excel标的='CZCE.AP605', 字典首个Key='CZCE.AP605'
+2026-03-26 09:24:00,824 - 01wisecoin-options-ranking - INFO - info:26 - 正在将期货行情导出到 wisecoin-期货行情.xlsx...
+2026-03-26 09:24:02,016 - 01wisecoin-options-ranking - INFO - info:26 - 🚀 期货行情保存完成: wisecoin-期货行情.xlsx，共记录 371 个标的合约，字段严格对应期权行情。
+2026-03-26 09:24:02,016 - 01wisecoin-options-ranking - INFO - info:26 - 正在读取 wisecoin-期权行情.xlsx 以获取已有的期权标的列表...
+2026-03-26 09:24:08,247 - 01wisecoin-options-ranking - INFO - info:26 - 获取到 371 个期权标的合约。
+2026-03-26 09:24:08,247 - 01wisecoin-options-ranking - INFO - info:26 - 正在获取全市场活跃期货列表...
+2026-03-26 09:24:08,321 - 01wisecoin-options-ranking - INFO - info:26 - 全市场期货共 933 个，其中非期权标的期货共 565 个
+2026-03-26 09:24:08,404 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 500/565 个期货信息
+2026-03-26 09:24:08,500 - 01wisecoin-options-ranking - INFO - info:26 - 已获取 565/565 个期货信息
+2026-03-26 09:24:08,501 - 01wisecoin-options-ranking - INFO - info:26 - 开始同步行情数据 (分批订阅)...
+2026-03-26 09:24:08,711 - 01wisecoin-options-ranking - INFO - info:26 - 合约信息汇总完成: 565 条记录, 匹配字典大小: 565
+2026-03-26 09:24:08,711 - 01wisecoin-options-ranking - INFO - info:26 - 匹配测试: 计划获取='GFEX.ps2604', 字典首个Key='GFEX.ps2604'
+2026-03-26 09:24:08,753 - 01wisecoin-options-ranking - INFO - info:26 - 正在将非标的期货行情导出到 wisecoin-期货行情-无期权.xlsx...
+2026-03-26 09:24:09,779 - 01wisecoin-options-ranking - INFO - info:26 - 🚀 非标的期货行情保存完成: wisecoin-期货行情-无期权.xlsx，共记录 565 个合约。
+2026-03-26 09:24:09,780 - 01wisecoin-options-ranking - INFO - info:26 - 所有期权及标的期货、非标的期货信息处理完成。
