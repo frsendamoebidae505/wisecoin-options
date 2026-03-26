@@ -26,17 +26,21 @@ class BackupManager:
     Attributes:
         source_dir: 源数据目录。
         backup_dir: 备份目录。
+        max_backups: 最大备份数量，默认10。
 
     Example:
         >>> manager = BackupManager("./data", "./backup")
         >>> backup_path = manager.create_backup()
     """
 
+    DEFAULT_MAX_BACKUPS = 10
+
     def __init__(
         self,
         source_dir: str,
         backup_dir: str,
         logger: Optional[StructuredLogger] = None,
+        max_backups: int = DEFAULT_MAX_BACKUPS,
     ):
         """
         初始化备份管理器。
@@ -45,10 +49,12 @@ class BackupManager:
             source_dir: 源数据目录路径。
             backup_dir: 备份目录路径。
             logger: 日志器实例（可选）。
+            max_backups: 最大备份数量，默认10。
         """
         self.source_dir = Path(source_dir)
         self.backup_dir = Path(backup_dir)
         self.logger = logger or StructuredLogger("backup")
+        self.max_backups = max_backups
 
     def create_backup(self, name: Optional[str] = None) -> Optional[str]:
         """
@@ -86,44 +92,78 @@ class BackupManager:
             shutil.copytree(self.source_dir, backup_path, ignore=ignore_patterns)
 
             self.logger.info(f"备份创建成功: {backup_path}")
+
+            # 自动清理旧备份
+            self._cleanup_backups()
+
             return str(backup_path)
 
         except Exception as e:
             self.logger.error(f"备份创建失败: {e}")
             return None
 
-    def clean_old_backups(
-        self,
-        keep_suffixes: Tuple[str, ...] = ("_0940", "_2040"),
-    ) -> Tuple[int, int]:
+    def _cleanup_backups(self) -> int:
         """
-        清理旧备份，只保留特定后缀的备份。
+        清理旧备份，保留最近的N个。
+
+        Returns:
+            删除的备份数量。
+        """
+        if not self.backup_dir.exists():
+            return 0
+
+        # 获取所有备份目录，按修改时间排序（最新的在前）
+        backups = sorted(
+            self.backup_dir.iterdir(),
+            key=lambda x: x.stat().st_mtime,
+            reverse=True
+        )
+
+        # 删除超出数量的旧备份
+        removed = 0
+        for old_backup in backups[self.max_backups:]:
+            try:
+                shutil.rmtree(old_backup)
+                self.logger.info(f"已删除旧备份: {old_backup.name}")
+                removed += 1
+            except Exception as e:
+                self.logger.error(f"删除失败: {old_backup}, {e}")
+
+        return removed
+
+    def clean_old_backups(self, keep_count: int = None) -> Tuple[int, int]:
+        """
+        清理旧备份，保留最近的N个。
 
         Args:
-            keep_suffixes: 保留的备份名称后缀。
+            keep_count: 保留数量，默认使用 max_backups。
 
         Returns:
             (保留数量, 删除数量)
         """
+        if keep_count is None:
+            keep_count = self.max_backups
+
         if not self.backup_dir.exists():
             return 0, 0
 
-        kept = 0
+        # 获取所有备份目录
+        backups = sorted(
+            self.backup_dir.iterdir(),
+            key=lambda x: x.stat().st_mtime,
+            reverse=True
+        )
+
+        kept = min(len(backups), keep_count)
         removed = 0
 
-        for item in self.backup_dir.iterdir():
-            if not item.is_dir():
-                continue
-
-            if item.name.endswith(keep_suffixes):
-                kept += 1
-            else:
-                try:
-                    shutil.rmtree(item)
-                    self.logger.info(f"已删除旧备份: {item}")
-                    removed += 1
-                except Exception as e:
-                    self.logger.error(f"删除失败: {item}, {e}")
+        for old_backup in backups[keep_count:]:
+            try:
+                shutil.rmtree(old_backup)
+                self.logger.info(f"已删除旧备份: {old_backup.name}")
+                removed += 1
+            except Exception as e:
+                self.logger.error(f"删除失败: {old_backup}, {e}")
 
         self.logger.info(f"清理完成: 保留 {kept} 个, 删除 {removed} 个")
         return kept, removed

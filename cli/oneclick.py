@@ -59,6 +59,11 @@ MODULES_TO_RUN = [
         'description': '期货期权联动分析，生成货权联动和市场概览',
     },
     {
+        'name': '实时监控配置',
+        'module': 'data.live_symbol',
+        'description': '从货权联动数据生成实时监控标的配置',
+    },
+    {
         'name': '期货K线获取',
         'module': 'data.klines',
         'description': '获取标的期货K线数据',

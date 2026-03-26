@@ -24,6 +24,9 @@ def __getattr__(name):
     elif name == 'check_margin_ratios':
         from data.openctp import check_margin_ratios
         return check_margin_ratios
+    elif name == 'LiveSymbolGenerator':
+        from data.live_symbol import LiveSymbolGenerator
+        return LiveSymbolGenerator
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 # TqSDK 客户端（延迟导入以支持无 TqSDK 环境）
@@ -92,4 +95,5 @@ __all__ = [
     'OpenCTPClient',
     'fetch_openctp_data',
     'check_margin_ratios',
+    'LiveSymbolGenerator',
 ]

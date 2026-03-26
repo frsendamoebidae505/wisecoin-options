@@ -1127,24 +1127,25 @@ async def main():
     """命令行入口函数。"""
     from data.tqsdk_client import TqSdkClient
     import sys
-    
+
     print("=" * 60)
     print("WiseCoin 期权行情获取模块")
     print("=" * 60)
-    
+
     # 使用 run_mode=2 (模拟账户)
     async with TqSdkClient(run_mode=2) as client:
         manager = OptionQuotesManager(client)
-        
-        # 获取期权合约
-        print("正在获取期权合约列表...")
-        symbols = await manager.get_all_option_symbols()
-        print(f"获取到 {len(symbols)} 个期权合约")
-        
-        # 获取行情
-        print("正在获取期权行情...")
-        quotes = await manager.get_option_quotes_from_excel()
-        print(f"行情数据已保存")
+
+        # 执行完整流程
+        results = await manager.run_all()
+
+        print("\n" + "=" * 60)
+        print("数据获取完成!")
+        print(f"  期权合约数: {results.get('option_symbols_count', 0)}")
+        print(f"  期权行情数: {results.get('option_quotes_count', 0)}")
+        print(f"  标的期货数: {results.get('futures_quotes_count', 0)}")
+        print(f"  非标的期货数: {results.get('non_underlying_futures_count', 0)}")
+        print("=" * 60)
 
 
 if __name__ == "__main__":

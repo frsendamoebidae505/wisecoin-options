@@ -1,25 +1,49 @@
-# WiseCoin 期权分析系统 - 使用说明
+# WiseCoin 期权分析系统
 
 > 架构重构版本 | 更新时间: 2026-03-26
+
+基于 Python 的期货期权量化分析平台，支持期权品种筛选、行情获取、波动率分析、策略生成等功能。
 
 ---
 
 ## 一、快速开始
 
-### 一键执行（推荐）
+### 智能启动（推荐）
 
 ```bash
 cd /Users/playbonze/pb-quant/26WiseCoin/wisecoin-options-free
+python3 run.py
+```
+
+智能模式会自动：
+1. 检测必需的 xlsx 文件是否存在
+2. 如缺失则运行 `oneclick` 生成数据
+3. 检测并清理旧的 GUI 进程
+4. 启动实时监控 GUI
+
+### 其他启动方式
+
+```bash
+python3 run.py --force      # 强制重新生成数据后启动GUI
+python3 run.py --no-gui     # 只生成数据，不启动GUI
+python3 run.py --scheduler  # 启动定时调度
+python3 run.py --live       # 仅启动实时监控GUI
+```
+
+### 一键执行
+
+```bash
 python3 -m cli.oneclick
 ```
 
-一键执行将依次运行以下模块：
+一键执行依次运行：
 1. 数据备份
-2. 期权行情获取
+2. 期权行情获取（含标的期货行情）
 3. OpenCTP数据获取
 4. 期权综合分析
 5. 期货联动分析
-6. 期货K线获取
+6. 实时监控配置生成
+7. 期货K线获取
 
 ---
 
@@ -31,10 +55,11 @@ python3 -m cli.oneclick
 |------|------|----------|
 | `python3 -m data.backup` | 数据备份 | `backups/YYYYMMDD_HHMM/` |
 | `python3 -m data.backup list` | 列出所有备份 | - |
-| `python3 -m data.backup clean` | 清理旧备份 | - |
-| `python3 -m data.option_quotes` | 期权行情获取 | `wisecoin-期权行情.xlsx`<br>`wisecoin-期货行情.xlsx`<br>`wisecoin-期权品种.xlsx` |
+| `python3 -m data.backup clean` | 清理旧备份（保留10个） | - |
+| `python3 -m data.option_quotes` | 期权+期货行情获取 | `wisecoin-期权行情.xlsx` 等 |
 | `python3 -m data.openctp` | OpenCTP数据获取 | `wisecoin-openctp数据.xlsx` |
 | `python3 -m data.klines` | 期货K线获取 | `wisecoin-期货K线.xlsx` |
+| `python3 -m data.live_symbol` | 实时监控配置 | `wisecoin-symbol-live.json` |
 
 ### 核心层 (core/)
 
@@ -50,7 +75,7 @@ python3 -m cli.oneclick
 
 | 命令 | 说明 | 输出文件 |
 |------|------|----------|
-| `python3 -m cli.oneclick` | 一键执行全部流程 | 见下方详细说明 |
+| `python3 -m cli.oneclick` | 一键执行全部流程 | 见上方说明 |
 | `python3 -m cli.option_analyzer` | 期权综合分析 | `wisecoin-期权排行.xlsx`<br>`wisecoin-期权参考.xlsx` |
 | `python3 -m cli.futures_analyzer` | 期货联动分析 | `wisecoin-货权联动.xlsx`<br>`wisecoin-市场概览.xlsx` |
 | `python3 -m cli.live_gui` | 实时监控GUI | 图形界面 |
@@ -68,6 +93,7 @@ python3 -m cli.oneclick
 | `wisecoin-期权品种.xlsx` | 期权品种汇总 | Summary + 各品种Sheet |
 | `wisecoin-期货K线.xlsx` | 期货日K线数据 | Summary + 各合约Sheet (250根K线) |
 | `wisecoin-openctp数据.xlsx` | OpenCTP补充数据 | 多Sheet |
+| `wisecoin-symbol-live.json` | 实时监控标的配置 | 标的合约列表 (JSON数组) |
 
 ### 3.2 分析文件
 
@@ -76,7 +102,7 @@ python3 -m cli.oneclick
 | `wisecoin-期权排行.xlsx` | 期权排行分析 | 期权排行、方向型期权、波动率型期权、期权PCR、期权痛点、期权资金 |
 | `wisecoin-期权参考.xlsx` | 期权参考(含IV/Greeks) | 期权参考 (52列全字段) |
 | `wisecoin-货权联动.xlsx` | 货权联动分析 | 货权联动、期货排行、期货涨跌、期货看多、期货看空、期货资金 |
-| `wisecoin-市场概览.xlsx` | 市场概览汇总 | 期货市场、期权市场、货权联动、期货排行、期权排行、期货涨跌、期权PCR、期权痛点、期货看多、期货看空、期货资金、期权资金、方向型期权、波动率型期权 |
+| `wisecoin-市场概览.xlsx` | 市场概览汇总 | 期货市场、期权市场、货权联动等14个工作表 |
 
 ### 3.3 期权参考.xlsx 字段说明 (52列)
 
@@ -105,11 +131,13 @@ wisecoin-options-free/
 │   └── exceptions.py      # 异常定义
 │
 ├── data/                   # 数据层
-│   ├── backup.py          # 数据备份
+│   ├── __init__.py        # 延迟导入
+│   ├── backup.py          # 数据备份（最多保留10个）
 │   ├── cache.py           # 数据缓存
 │   ├── openctp.py         # OpenCTP数据获取
 │   ├── option_quotes.py   # 期权行情获取
 │   ├── klines.py          # K线数据获取
+│   ├── live_symbol.py     # 实时监控配置生成
 │   └── tqsdk_client.py    # TqSDK客户端封装
 │
 ├── core/                   # 核心层
@@ -134,7 +162,9 @@ wisecoin-options-free/
 │   ├── futures_analyzer.py # 期货分析CLI
 │   └── live_gui.py        # 实时监控GUI
 │
-└── backups/                # 备份目录
+├── run.py                  # 智能启动入口
+├── run.command             # macOS双击启动脚本
+└── backups/                # 备份目录（最多10个）
 ```
 
 ---
@@ -186,10 +216,52 @@ export TQ_PASSWORD_4="account_password"
 
 ---
 
-## 七、常见问题
+## 七、迁移对应表
+
+原始脚本与新模块对应关系：
+
+### 数据层
+
+| 原始脚本 | 新模块 | 说明 |
+|----------|--------|------|
+| `00wisecoin_options_backup.py` | `data.backup` | 数据备份 |
+| `00wisecoin_options_backup_clean.py` | `data.backup clean` | 备份清理 |
+| `01wisecoin-options-ranking.py` | `data.option_quotes` | 期权合约获取 |
+| `02wisecoin-openctp-api.py` | `data.openctp` | OpenCTP数据 |
+| `09wisecoin-futures-klines.py` | `data.klines` | K线获取 |
+| `13wisecoin_options_live_symbol.py` | `data.live_symbol` | 实时监控配置 |
+| `14wisecoin_options_client_data.py` | `data.option_quotes` | 期权数据 |
+| `14wisecoin_options_client_data_klines.py` | `data.klines` | K线获取CLI |
+
+### 核心层
+
+| 原始脚本 | 新模块 | 说明 |
+|----------|--------|------|
+| `03wisecoin-options-analyze.py` | `core.analyzer` + `cli.option_analyzer` | 期权分析 |
+| `04wisecoin-options-iv.py` | `core.iv_calculator` + `cli.option_analyzer` | IV计算(已整合) |
+| `05wisecoin-futures-analyze.py` | `core.futures_analyzer` + `cli.futures_analyzer` | 期货分析 |
+
+### CLI层
+
+| 原始脚本 | 新模块 | 说明 |
+|----------|--------|------|
+| `06wisecoin_oneclick.py` | `cli.oneclick` | 一键执行 |
+| `07wisecoin_run.py` | `cli.scheduler` | 定时调度 |
+| `18wisecoin_options_client_live.py` | `cli.live_gui` | 实时监控GUI |
+
+### 代码量对比
+
+| 指标 | 原始文件 | 新模块 | 变化 |
+|------|----------|--------|------|
+| 总行数 | 34,286 | 14,701 | -57.1% |
+| 文件数 | 28 | 按层级组织 | 结构化 |
+
+---
+
+## 八、常见问题
 
 ### Q1: 运行 `python3 -m data.xxx` 报错 "No module named 'data'"
-**A:** 确保在项目根目录下运行命令，或设置 PYTHONPATH：
+**A:** 确保在项目根目录下运行命令：
 ```bash
 cd /Users/playbonze/pb-quant/26WiseCoin/wisecoin-options-free
 python3 -m data.backup
@@ -202,32 +274,14 @@ pip install tqsdk
 ```
 
 ### Q3: GUI显示某些字段为空
-**A:** 确保 `wisecoin-市场概览.xlsx` 和 `wisecoin-期权参考.xlsx` 文件存在且数据完整。重新运行分析模块：
+**A:** 确保 `wisecoin-市场概览.xlsx` 和 `wisecoin-期权参考.xlsx` 文件存在。重新运行：
 ```bash
 python3 -m cli.option_analyzer
 python3 -m cli.futures_analyzer
 ```
 
-### Q4: 备份目录无限递归
-**A:** 已修复。新版本会自动排除 `backups/`、`__pycache__/`、`.venv/` 等目录。
-
----
-
-## 八、迁移对应表
-
-原始脚本与新模块对应关系：
-
-| 原始脚本 | 新模块 | 说明 |
-|----------|--------|------|
-| `00wisecoin_options_backup.py` | `data.backup` | 数据备份 |
-| `01wisecoin-options-ranking.py` | `data.option_quotes` | 期权合约获取 |
-| `02wisecoin-openctp-api.py` | `data.openctp` | OpenCTP数据 |
-| `03wisecoin-options-analyze.py` | `cli.option_analyzer` | 期权分析 |
-| `04wisecoin-options-iv.py` | `cli.option_analyzer` | IV计算(已整合) |
-| `05wisecoin-futures-analyze.py` | `cli.futures_analyzer` | 期货分析 |
-| `09wisecoin-futures-klines.py` | `data.klines` | K线获取 |
-| `14wisecoin_options_client_data.py` | `data.option_quotes` | 期权数据 |
-| `14wisecoin_options_client_data_klines.py` | `data.klines` | K线获取CLI |
+### Q4: 备份目录产生过多备份
+**A:** 新版本已优化，每次创建备份后自动清理，最多保留10个。
 
 ---
 
@@ -235,11 +289,12 @@ python3 -m cli.futures_analyzer
 
 ### 2026-03-26
 - 完成架构重构，代码量从 34,286 行减少到 14,701 行 (-57%)
-- 新增 `cli/option_analyzer.py` 整合期权分析和IV计算
-- 新增 `cli/futures_analyzer.py` 期货联动分析
-- 新增 `cli/oneclick.py` 一键执行新架构模块
+- 新增 `run.py` 智能启动入口
+- 新增 `run.command` macOS启动脚本（自动清理旧进程）
+- 新增 `data/live_symbol.py` 实时监控配置模块
+- 优化 `cli/live_gui.py` 路径处理，移除冗余备份逻辑
+- 优化 `data/backup.py` 自动清理，最多保留10个备份
 - 修复 `data/backup.py` 递归复制问题
-- 修复 `cli/live_gui.py` 字段映射问题
 - 测试状态: 310 passed, 7 failed, 3 errors
 
 ---

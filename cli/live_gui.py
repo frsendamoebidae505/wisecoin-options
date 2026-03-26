@@ -114,8 +114,9 @@ class ScriptRunner(QThread):
 
 class MarketOverviewWindow(QDialog):
     """市场概览弹出窗口"""
-    def __init__(self, parent=None):
+    def __init__(self, project_root, parent=None):
         super().__init__(parent)
+        self.project_root = project_root
         self.setWindowTitle("WiseCoin 市场概览")
         self.resize(1600, 900)
         # 窗口关闭时自动销毁
@@ -221,8 +222,8 @@ class MarketOverviewWindow(QDialog):
         return table
 
     def load_data(self):
-        file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'wisecoin-市场概览.xlsx')
-        if not os.path.exists(file_path):
+        file_path = self.project_root / 'wisecoin-市场概览.xlsx'
+        if not file_path.exists():
             return
 
         try:
@@ -364,18 +365,10 @@ class OptionTShapeWindow(QMainWindow):
         self.current_underlying = None # 当前选中的标的
         self.current_expiry = None     # 当前选中的交割月
 
-        # 实时数据目录 - 使用项目根目录
-        # 无论从哪个目录运行，都定位到项目根目录
+        # 项目根目录 - 所有文件读写基于此路径
         self.project_root = Path(__file__).parent.parent.resolve()
-        self.temp_dir = str(self.project_root)
-        self.backup_dir = str(self.project_root / "backups")
-
         print(f"项目根目录: {self.project_root}")
-        print(f"数据目录: {self.temp_dir}")
 
-        if not os.path.exists(self.temp_dir):
-            os.makedirs(self.temp_dir)
-        
         # 自动刷新配置
         self.refresh_interval = 180000 * 3 * 3  # 3分钟
         self.countdown_seconds = 180 * 3 * 3
@@ -431,39 +424,6 @@ class OptionTShapeWindow(QMainWindow):
                 
         return is_trading
 
-    def backup_data(self):
-        """备份当前Temp数据，保留最近3份"""
-        if not os.path.exists(self.temp_dir):
-            return
-
-        # 创建带时间戳的备份目录
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        target_dir = os.path.join(self.backup_dir, timestamp)
-        
-        try:
-            if not os.path.exists(target_dir):
-                os.makedirs(target_dir)
-                
-            # 移动 .xlsx 文件
-            files = glob.glob(os.path.join(self.temp_dir, "*.xlsx"))
-            if not files:
-                return # 没有文件需要备份
-                
-            for f in files:
-                shutil.copy2(f, target_dir) # 使用 copy 而不是 move，防止读取冲突（虽然 scripts 会覆盖）
-            
-            print(f"✅ 数据已备份至: {target_dir}")
-            
-            # 清理旧备份 (保留最近3个)
-            all_backups = sorted(glob.glob(os.path.join(self.backup_dir, "*")), key=os.path.getctime)
-            while len(all_backups) > 3:
-                oldest = all_backups.pop(0)
-                shutil.rmtree(oldest)
-                print(f"🗑️ 已清理旧备份: {oldest}")
-                
-        except Exception as e:
-            print(f"❌ 备份失败: {e}")
-
     def auto_refresh_check(self):
         """自动刷新检查 (只在交易时间触发)"""
         # 重置倒计时
@@ -484,26 +444,21 @@ class OptionTShapeWindow(QMainWindow):
             QMessageBox.warning(self, "提示", "数据刷新正在进行中...")
             return
 
-        # 1. 执行备份
-        self.status_label.setText("状态：正在备份数据...")
-        QApplication.processEvents()
-        self.backup_data()
-        
-        # 2. 清理旧数据 (关键：删除支持断点续传的文件，强制重新获取)
+        # 清理旧数据 (关键：删除支持断点续传的文件，强制重新获取)
         try:
             files_to_clean = [
                 "wisecoin-期权行情.xlsx",
                 "wisecoin-期货行情.xlsx"
             ]
             for clean_file in files_to_clean:
-                clean_path = os.path.join(self.temp_dir, clean_file)
-                if os.path.exists(clean_path):
-                    os.remove(clean_path)
+                clean_path = self.project_root / clean_file
+                if clean_path.exists():
+                    clean_path.unlink()
                     print(f"🧹 已清理旧文件以便重新获取: {clean_file}")
         except Exception as e:
             print(f"❌ 清理旧文件失败: {e}")
 
-        # 3. 启动线程
+        # 启动线程
         self.is_refreshing = True
         self.refresh_button.setEnabled(False)
         self.market_overview_button.setEnabled(False)
@@ -905,23 +860,21 @@ class OptionTShapeWindow(QMainWindow):
             self.status_label.setText("状态：加载中...")
             self.status_label.setStyleSheet("color: orange; font-weight: bold;")
             QApplication.processEvents()
-            
+
             # 读取市场概览
-            market_file = os.path.join(self.temp_dir, 'wisecoin-市场概览.xlsx')
-            if not os.path.exists(market_file):
+            market_file = self.project_root / 'wisecoin-市场概览.xlsx'
+            if not market_file.exists():
                 raise FileNotFoundError(f"未找到文件: {market_file}")
-            
+
             with pd.ExcelFile(market_file) as xl:
                 self.market_overview_df = pd.read_excel(xl, sheet_name='货权联动')
-            
+
             # 读取期权参考
-            option_file = os.path.join(self.temp_dir, 'wisecoin-期权参考.xlsx')
-            if not os.path.exists(option_file):
-                option_file = 'wisecoin-期权参考.xlsx' # 回退到主目录
-            if not os.path.exists(option_file):
+            option_file = self.project_root / 'wisecoin-期权参考.xlsx'
+            if not option_file.exists():
                 raise FileNotFoundError(f"未找到文件: {option_file}")
             self.option_ref_df = pd.read_excel(option_file, sheet_name='期权参考')
-            
+
             # 读取波动率曲面数据 (尝试读取，若不存在则忽略)
             self.vol_surface_df = None
             try:
@@ -931,14 +884,12 @@ class OptionTShapeWindow(QMainWindow):
                     self.vol_surface_df = pd.read_excel(option_file, sheet_name='波动率曲面')
             except Exception as e:
                 print(f"读取波动率曲面失败 (可能未生成): {e}")
-            
+
             # 读取期货K线数据
-            klines_file = os.path.join(self.temp_dir, 'wisecoin-期货K线.xlsx')
-            if not os.path.exists(klines_file):
-                klines_file = 'wisecoin-期货K线.xlsx'
-            
+            klines_file = self.project_root / 'wisecoin-期货K线.xlsx'
+
             self.klines_data = {}
-            if os.path.exists(klines_file):
+            if klines_file.exists():
                 try:
                     klines_xl = pd.ExcelFile(klines_file)
                     for sheet_name in klines_xl.sheet_names:
@@ -1066,7 +1017,7 @@ class OptionTShapeWindow(QMainWindow):
     def show_market_overview(self):
         """显示市场概览窗口"""
         # 每次创建新实例，弹窗时加载数据
-        dialog = MarketOverviewWindow(self)
+        dialog = MarketOverviewWindow(self.project_root, self)
         dialog.exec_()
     
     def on_prev_contract(self):

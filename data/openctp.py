@@ -621,15 +621,16 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Fetch OpenCTP data and check margin ratios.")
-    parser.add_argument("--auto-update", action="store_true",
-                        help="Automatically update wisecoin-symbol-params.json with new margin ratios.")
+    parser.add_argument("--no-auto-update", action="store_true",
+                        help="Disable automatic update of wisecoin-symbol-params.json.")
     args = parser.parse_args()
 
     client = OpenCTPClient()
     success = client.fetch_and_save()
 
     if success:
-        client.check_margin_ratios(auto_update=args.auto_update)
+        # 默认自动更新，除非指定 --no-auto-update
+        client.check_margin_ratios(auto_update=not args.no_auto_update)
 
 
 if __name__ == "__main__":
