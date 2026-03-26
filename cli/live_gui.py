@@ -612,28 +612,27 @@ class OptionTShapeWindow(QMainWindow):
             "期货沉淀(亿)": "期货沉淀(亿)",  # 直接使用期货沉淀列
             "期货状态": "期货趋势",          # 映射到期货趋势
             "期货方向": "期货流向",          # 映射到期货流向
-            "期货流向": "期货流向",
         }
 
         underlying_fields = [
             ("标的合约", "标的合约"),
             ("期货现价", "期货现价"),
             ("杠杆涨跌%", "杠杆涨跌%"),
-            ("期货沉淀(亿)", "期货沉淀(亿)"),  # GUI标签
+            ("期货沉淀(亿)", "期货沉淀(亿)"),
             ("期货状态", "期货状态"),
             ("期货方向", "期货方向"),
-            ("期货流向", "期货流向"),
         ]
-        
+
+        # 一行3个指标
         for idx, (label_text, key) in enumerate(underlying_fields):
-            row = idx % 4
-            col = (idx // 4) * 2
-            
+            row = idx // 3
+            col = (idx % 3) * 2
+
             label = QLabel(f"{label_text}:")
             label.setStyleSheet("font-size: 10pt;")
             value_label = QLabel("-")
             value_label.setStyleSheet("font-size: 11pt; color: #0066cc;")
-            
+
             self.underlying_stats_grid.addWidget(label, row, col)
             self.underlying_stats_grid.addWidget(value_label, row, col + 1)
             self.underlying_stat_labels[key] = value_label
@@ -650,7 +649,6 @@ class OptionTShapeWindow(QMainWindow):
         # 字段映射：期权统计
         self.option_field_map = {
             "期权结构": "期权结构",
-            "期权情绪": "情绪倾向",          # 映射到情绪倾向
             "期权PCR": "期权PCR",
             "期权沉淀(亿)": "期权沉淀(亿)",  # 直接使用期权沉淀列
             "最大痛点": "最大痛点",
@@ -660,23 +658,23 @@ class OptionTShapeWindow(QMainWindow):
 
         option_fields = [
             ("期权结构", "期权结构"),
-            ("期权情绪", "期权情绪"),
             ("期权PCR", "期权PCR"),
-            ("期权沉淀(亿)", "期权沉淀(亿)"),  # GUI标签
+            ("期权沉淀(亿)", "期权沉淀(亿)"),
             ("最大痛点", "最大痛点"),
             ("痛点距离%", "痛点距离%"),
             ("联动状态", "联动状态"),
         ]
-        
+
+        # 一行3个指标
         for idx, (label_text, key) in enumerate(option_fields):
-            row = idx % 4
-            col = (idx // 4) * 2
-            
+            row = idx // 3
+            col = (idx % 3) * 2
+
             label = QLabel(f"{label_text}:")
             label.setStyleSheet("font-size: 10pt;")
             value_label = QLabel("-")
             value_label.setStyleSheet("font-size: 11pt; color: #cc6600;")
-            
+
             self.option_stats_grid.addWidget(label, row, col)
             self.option_stats_grid.addWidget(value_label, row, col + 1)
             self.option_stat_labels[key] = value_label
@@ -694,55 +692,48 @@ class OptionTShapeWindow(QMainWindow):
         linkage_layout.setVerticalSpacing(4)
         self.linkage_labels = {}
         
-        # 优化布局：
-        # 列0: 评分体系 | 列1: 波动结构 | 列2: 偏度特征 | 列3: 策略建议
-        # 市场解读、波曲策略、适合策略、不适合策略放在同一行
+        # 一行6个指标，按逻辑分组
+        # 第一行：波动结构
+        # 第二行：IV分布
+        # 第三行：资金与策略
         linkage_fields = [
-            # 第一行
-            ("期限结构", "期限结构", 0, 0, 1, "#0066cc"),  # From Vol Surface
-            ("倾斜方向", "倾斜方向", 0, 2, 1, "#006666"),  # From Vol Surface
-            ("共振标签", "共振标签", 0, 4, 1, "#666600"),
+            # 第一行（波动结构）
+            ("期限结构", "期限结构", 0, 0, "#0066cc"),
+            ("倾斜方向", "倾斜方向", 0, 2, "#006666"),
+            ("IV/RV比率", "IV/RV比率", 0, 4, "#cc6600"),
+            ("期限结构差", "期限结构差", 0, 6, "#0066cc"),
+            ("IV倾斜度", "IV倾斜度", 0, 8, "#006666"),
+            ("峰度", "峰度", 0, 10, "#cc6600"),
 
-            # 第二行
-            ("联动总分", "联动总分", 1, 0, 1, "#990099"),
-            ("IV/RV比率", "IV/RV比率", 1, 2, 1, "#cc6600"), # From Vol Surface
-            ("期限结构差", "期限结构差", 1, 4, 1, "#0066cc"), # From Vol Surface
-            ("IV倾斜度", "IV倾斜度", 1, 6, 1, "#006666"),  # From Vol Surface
-            
-            # 第三行
-            ("价格评分", "价格评分", 2, 0, 1, "#990099"),
-            ("峰度", "峰度", 2, 2, 1, "#cc6600"),        # From Vol Surface
-            ("短期IV", "短期IV", 2, 4, 1, "#0066cc"),      # From Vol Surface
-            ("虚值认沽IV", "虚值认沽IV均值", 2, 6, 1, "#006666"), # From Vol Surface
-            ("沉淀合计", "沉淀资金合计(亿)", 2, 8, 1, "#666600"),
+            # 第二行（IV分布）
+            ("短期IV", "短期IV", 1, 0, "#0066cc"),
+            ("长期IV", "长期IV", 1, 2, "#006666"),
+            ("虚值认沽IV", "虚值认沽IV均值", 1, 4, "#cc6600"),
+            ("虚值认购IV", "虚值认购IV均值", 1, 6, "#0066cc"),
+            ("偏度", "偏度", 1, 8, "#006666"),
+            ("合约数量", "合约数量", 1, 10, "#666600"),
 
-            # 第四行
-            ("情绪评分", "情绪评分", 3, 0, 1, "#990099"),
-            ("偏度", "偏度", 3, 2, 1, "#cc6600"),        # From Vol Surface
-            ("长期IV", "长期IV", 3, 4, 1, "#0066cc"),      # From Vol Surface
-            ("虚值认购IV", "虚值认购IV均值", 3, 6, 1, "#006666"), # From Vol Surface
-            ("合约数量", "合约数量", 3, 8, 1, "#666600"),    # From Vol Surface
-
-            # 第五行：策略信息（同一行，对齐前四列，留空第五列）
-            ("市场解读", "市场解读", 4, 0, 1, "#FF0000"),
-            ("波曲策略", "推荐策略", 4, 2, 1, "#FF0000"), # From Vol Surface
-            ("适合策略", "适合策略", 4, 4, 1, "#FF0000"),
-            ("不适合策略", "不适合策略", 4, 6, 1, "#008800"),
+            # 第三行（资金与策略）
+            ("沉淀合计", "沉淀资金合计(亿)", 2, 0, "#666600"),
+            ("市场解读", "市场解读", 2, 2, "#FF0000"),
+            ("波曲策略", "推荐策略", 2, 4, "#FF0000"),
+            ("适合策略", "适合策略", 2, 6, "#FF0000"),
+            ("不适合策略", "不适合策略", 2, 8, "#008800"),
         ]
-        
-        for label_text, key, row, col, colspan, color in linkage_fields:
+
+        for label_text, key, row, col, color in linkage_fields:
             label = QLabel(f"{label_text}:")
             label.setStyleSheet("font-size: 10pt;")
             value_label = QLabel("-")
             value_label.setStyleSheet(f"font-size: 11pt; color: {color}; font-weight: bold;")
             value_label.setWordWrap(True)
-            
+
             linkage_layout.addWidget(label, row, col)
-            linkage_layout.addWidget(value_label, row, col + 1, 1, colspan)
+            linkage_layout.addWidget(value_label, row, col + 1)
             self.linkage_labels[key] = value_label
-        
+
         # 设置列宽比例
-        for i in range(10):
+        for i in range(12):
             linkage_layout.setColumnStretch(i, 1)
         
         main_layout.addWidget(linkage_group)
@@ -1187,10 +1178,8 @@ class OptionTShapeWindow(QMainWindow):
         # C. 货权联动分析 (含波动率曲面汇总字段)
         # 定义联动字段的映射（部分字段需要从不同来源获取）
         linkage_field_map = {
-            "共振标签": "联动状态",    # 从联动状态获取
-            "联动总分": "共振评分",    # 从共振评分获取
             "适合策略": "策略建议",    # 从策略建议获取
-            "沉淀合计": "沉淀资金(亿)",
+            "沉淀资金合计(亿)": "沉淀资金(亿)",
         }
 
         for key, label in self.linkage_labels.items():
@@ -1285,10 +1274,6 @@ class OptionTShapeWindow(QMainWindow):
         # 不适合策略
         result['不适合策略'] = self._get_unsuitable_strategies(result['市场情绪'], iv_rv_ratio)
 
-        # 价格评分和情绪评分
-        result['价格评分'] = self._calculate_price_score(iv_rv_ratio)
-        result['情绪评分'] = self._calculate_emotion_score(iv_skew, term_diff)
-
         return result
     
     def _classify_market_sentiment(self, iv_skew, term_structure, iv_kurtosis, iv_rv_ratio):
@@ -1372,36 +1357,6 @@ class OptionTShapeWindow(QMainWindow):
             unsuitable.append('高杠杆策略')
 
         return ', '.join(unsuitable[:2])
-
-    def _calculate_price_score(self, iv_rv_ratio):
-        """计算价格评分 (1-5分，IV/RV越低越便宜)"""
-        if not isinstance(iv_rv_ratio, (int, float)):
-            return 3
-        if iv_rv_ratio < 0.7:
-            return 5  # 期权便宜
-        elif iv_rv_ratio < 0.9:
-            return 4
-        elif iv_rv_ratio < 1.1:
-            return 3  # 期权定价合理
-        elif iv_rv_ratio < 1.3:
-            return 2
-        else:
-            return 1  # 期权昂贵
-
-    def _calculate_emotion_score(self, iv_skew, term_diff):
-        """计算情绪评分 (1-5分)"""
-        score = 3
-        # 看跌倾斜越严重，市场越恐慌
-        if iv_skew > 5:
-            score -= 1
-        elif iv_skew < -5:
-            score += 1
-        # 期限结构倒挂表示短期恐慌
-        if term_diff > 5:
-            score -= 1
-        elif term_diff < -5:
-            score += 1
-        return max(1, min(5, score))
 
     def update_t_shape_table(self, underlying, expiry):
         """更新T型表格（全字段对称显示，智能多色染色）"""
