@@ -390,10 +390,24 @@ class OptionTShapeWindow(QMainWindow):
         self.market_overview_df = None
         self.option_ref_df = None
         self.klines_data = {}  # 期货K线数据 {symbol: DataFrame}
+        self.futures_quotes_df = None  # 期货行情数据（期限结构用）
         self.contract_list = []  # 合约列表（标的+交割月）
         self.current_underlying = None # 当前选中的标的
         self.current_expiry = None     # 当前选中的交割月
         self.product_names = {}  # 品种中文名称映射 {品种代码: 中文名}
+
+        # 期权标的 -> 对应期货品种映射（股指期权标的映射到股指期货品种）
+        self.underlying_to_future_map = {
+            # 上交所指数 -> 中金所股指期货
+            '000300': 'IF',  # 沪深300 -> IF
+            '00300': 'IF',
+            '000016': 'IH',  # 上证50 -> IH
+            '00016': 'IH',
+            '000852': 'IM',  # 中证1000 -> IM
+            '00852': 'IM',
+            '000905': 'IC',  # 中证500 -> IC（如果有的话）
+            '00905': 'IC',
+        }
 
         # 项目根目录 - 所有文件读写基于此路径
         self.project_root = Path(__file__).parent.parent.resolve()
@@ -915,37 +929,47 @@ class OptionTShapeWindow(QMainWindow):
         
         # ========== 下方：图表区（K线 + 波动率曲面 + 微笑曲线）==========
         charts_splitter = QSplitter(Qt.Horizontal)
-        
-        # 标的K线图（左边1/3）
+
+        # 标的K线图（左边）
         kline_group = QGroupBox("标的K线")
         kline_layout = QVBoxLayout(kline_group)
         kline_layout.setContentsMargins(2, 2, 2, 2)
         self.kline_fig = Figure(figsize=(5, 4), dpi=90)
         self.kline_canvas = FigureCanvas(self.kline_fig)
         kline_layout.addWidget(self.kline_canvas)
-        
-        # 波动率曲面（中间1/3）
+
+        # 期限结构图（中左）
+        term_group = QGroupBox("期限结构")
+        term_layout = QVBoxLayout(term_group)
+        term_layout.setContentsMargins(2, 2, 2, 2)
+        self.term_fig = Figure(figsize=(5, 4), dpi=90)
+        self.term_canvas = FigureCanvas(self.term_fig)
+        term_layout.addWidget(self.term_canvas)
+
+        # 波动率曲面（中右）
         surface_group = QGroupBox("波动率曲面")
         surface_layout = QVBoxLayout(surface_group)
         surface_layout.setContentsMargins(2, 2, 2, 2)
         self.surface_fig = Figure(figsize=(5, 4), dpi=90)
         self.surface_canvas = FigureCanvas(self.surface_fig)
         surface_layout.addWidget(self.surface_canvas)
-        
-        # 微笑曲线（右边1/3）
+
+        # 微笑曲线（右边）
         smile_group = QGroupBox("微笑曲线")
         smile_layout = QVBoxLayout(smile_group)
         smile_layout.setContentsMargins(2, 2, 2, 2)
         self.smile_fig = Figure(figsize=(5, 4), dpi=90)
         self.smile_canvas = FigureCanvas(self.smile_fig)
         smile_layout.addWidget(self.smile_canvas)
-        
+
         charts_splitter.addWidget(kline_group)
+        charts_splitter.addWidget(term_group)
         charts_splitter.addWidget(surface_group)
         charts_splitter.addWidget(smile_group)
-        charts_splitter.setStretchFactor(0, 1)  # K线 1/3
-        charts_splitter.setStretchFactor(1, 1)  # 波动率曲面 1/3
-        charts_splitter.setStretchFactor(2, 1)  # 微笑曲线 1/3
+        charts_splitter.setStretchFactor(0, 1)  # K线
+        charts_splitter.setStretchFactor(1, 1)  # 期限结构
+        charts_splitter.setStretchFactor(2, 1)  # 波动率曲面
+        charts_splitter.setStretchFactor(3, 1)  # 微笑曲线
         
         main_layout.addWidget(charts_splitter, stretch=2)
     
@@ -1023,6 +1047,24 @@ class OptionTShapeWindow(QMainWindow):
                         print(f"已加载 {len(self.klines_data)} 个合约的K线数据 (XLSX格式)")
                 except Exception as e:
                     print(f"读取期货K线数据失败: {e}")
+
+            # 读取期货行情数据（期限结构用）
+            self.futures_quotes_df = None
+            futures_files = [
+                self.project_root / 'wisecoin-期货行情.xlsx',
+                self.project_root / 'wisecoin-期货行情-无期权.xlsx'
+            ]
+            futures_dfs = []
+            for ff in futures_files:
+                if ff.exists():
+                    try:
+                        df_f = pd.read_excel(ff)
+                        futures_dfs.append(df_f)
+                    except Exception as e:
+                        print(f"读取 {ff.name} 失败: {e}")
+            if futures_dfs:
+                self.futures_quotes_df = pd.concat(futures_dfs, ignore_index=True)
+                print(f"已加载期货行情数据 {len(self.futures_quotes_df)} 条")
             
             # 计算涨跌幅
             if '昨收' in self.option_ref_df.columns and '期权价' in self.option_ref_df.columns:
@@ -1852,8 +1894,11 @@ class OptionTShapeWindow(QMainWindow):
         
         # 4. 绘制K线图
         self.plot_kline_chart(underlying)
-        
-        # 5. 绘制波动率图表
+
+        # 5. 绘制期限结构图
+        self.plot_term_structure(underlying, product_code)
+
+        # 6. 绘制波动率图表
         self.plot_vol_surface(df_product, surface_title)
         self.plot_vol_smile(df_smile, expiry)
 
@@ -1883,7 +1928,129 @@ class OptionTShapeWindow(QMainWindow):
             return code_part.upper()
         except:
             return ''
-    
+
+    def plot_term_structure(self, underlying, product_code):
+        """绘制期货期限结构图"""
+        self.term_fig.clear()
+
+        if self.futures_quotes_df is None or self.futures_quotes_df.empty:
+            ax = self.term_fig.add_subplot(111)
+            ax.text(0.5, 0.5, '无期货行情数据', transform=ax.transAxes, ha='center', va='center')
+            ax.axis('off')
+            self.term_canvas.draw()
+            return
+
+        # 确定期货品种代码
+        # 1. 股指期权标的（如 SSE.00852）映射到股指期货品种（如 IM）
+        # 2. 商品期权标的直接使用提取的品种代码
+        future_product = self.underlying_to_future_map.get(product_code, product_code)
+
+        # 筛选该品种的期货合约
+        df = self.futures_quotes_df.copy()
+
+        # 匹配品种代码（大小写兼容）
+        if 'product_id' in df.columns:
+            df['product_id_upper'] = df['product_id'].astype(str).str.upper()
+            product_df = df[df['product_id_upper'] == future_product.upper()].copy()
+        else:
+            ax = self.term_fig.add_subplot(111)
+            ax.text(0.5, 0.5, '缺少品种字段', transform=ax.transAxes, ha='center', va='center')
+            ax.axis('off')
+            self.term_canvas.draw()
+            return
+
+        if product_df.empty:
+            ax = self.term_fig.add_subplot(111)
+            ax.text(0.5, 0.5, f'无 {future_product} 期货数据', transform=ax.transAxes, ha='center', va='center')
+            ax.axis('off')
+            self.term_canvas.draw()
+            return
+
+        # 过滤有效价格
+        product_df = product_df[product_df['last_price'] > 0].copy()
+
+        if product_df.empty:
+            ax = self.term_fig.add_subplot(111)
+            ax.text(0.5, 0.5, '无有效价格数据', transform=ax.transAxes, ha='center', va='center')
+            ax.axis('off')
+            self.term_canvas.draw()
+            return
+
+        # 构建到期月份标签
+        if 'delivery_year' in product_df.columns and 'delivery_month' in product_df.columns:
+            product_df['到期年月'] = product_df['delivery_year'].astype(str).str[-2:] + product_df['delivery_month'].astype(str).str.zfill(2)
+        elif 'instrument_id' in product_df.columns:
+            # 从合约代码提取到期月份
+            def extract_expiry(inst_id):
+                try:
+                    s = str(inst_id).split('.')[-1]
+                    # 提取数字部分（如 au2606 -> 2606）
+                    import re
+                    m = re.search(r'(\d+)', s)
+                    return m.group(1)[-4:] if m else ''
+                except:
+                    return ''
+            product_df['到期年月'] = product_df['instrument_id'].apply(extract_expiry)
+        else:
+            ax = self.term_fig.add_subplot(111)
+            ax.text(0.5, 0.5, '缺少交割信息', transform=ax.transAxes, ha='center', va='center')
+            ax.axis('off')
+            self.term_canvas.draw()
+            return
+
+        # 按到期年月排序
+        product_df = product_df.sort_values('到期年月')
+
+        # 绘制期限结构图
+        ax = self.term_fig.add_subplot(111)
+
+        # 主线：收盘价/最新价
+        ax.plot(product_df['到期年月'], product_df['last_price'],
+                color='#0066CC', marker='o', markersize=6, linewidth=2, label='最新价')
+
+        # 标注每个点
+        for _, row in product_df.iterrows():
+            ax.annotate(f"{row['last_price']:.1f}",
+                       (row['到期年月'], row['last_price']),
+                       textcoords="offset points", xytext=(0, 8),
+                       ha='center', fontsize=7, color='#0066CC')
+
+        # 如果有结算价，也绘制
+        if 'settlement' in product_df.columns:
+            valid_settlement = product_df[product_df['settlement'] > 0]
+            if not valid_settlement.empty:
+                ax.plot(valid_settlement['到期年月'], valid_settlement['settlement'],
+                        color='#FF6600', marker='s', markersize=4, linewidth=1.5,
+                        linestyle='--', label='结算价', alpha=0.7)
+
+        # 设置标题
+        product_name = self.product_names.get(future_product.upper(), future_product)
+        ax.set_title(f'{product_name} 期限结构', fontsize=10, fontweight='bold')
+
+        # 设置坐标轴
+        ax.set_xlabel('到期月份', fontsize=10)
+        ax.set_ylabel('价格', fontsize=10)
+
+        # 旋转X轴标签
+        ax.tick_params(axis='x', rotation=45, labelsize=8)
+        ax.tick_params(axis='y', labelsize=8)
+
+        # 网格线
+        ax.grid(True, alpha=0.3, linestyle='--')
+        ax.set_axisbelow(True)
+
+        # 图例
+        ax.legend(loc='upper right', fontsize=9, framealpha=0.9)
+
+        # 边框美化
+        for spine in ['top', 'right']:
+            ax.spines[spine].set_visible(False)
+        ax.spines['left'].set_color('#888888')
+        ax.spines['bottom'].set_color('#888888')
+
+        self.term_fig.tight_layout()
+        self.term_canvas.draw()
+
     def plot_kline_chart(self, underlying):
         """绘制标的K线图（简明清晰大方风格）"""
         self.kline_fig.clear()
