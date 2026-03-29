@@ -1,6 +1,7 @@
 import sys
 import time
 import os
+import json
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -392,10 +393,14 @@ class OptionTShapeWindow(QMainWindow):
         self.contract_list = []  # 合约列表（标的+交割月）
         self.current_underlying = None # 当前选中的标的
         self.current_expiry = None     # 当前选中的交割月
+        self.product_names = {}  # 品种中文名称映射 {品种代码: 中文名}
 
         # 项目根目录 - 所有文件读写基于此路径
         self.project_root = Path(__file__).parent.parent.resolve()
         print(f"项目根目录: {self.project_root}")
+
+        # 加载品种中文名称
+        self._load_product_names()
 
         # 自动刷新配置（默认关闭）
         self.auto_refresh_enabled = False
@@ -421,6 +426,64 @@ class OptionTShapeWindow(QMainWindow):
         else:
             self.refresh_timer = None
             self.countdown_timer = None
+
+    def _load_product_names(self):
+        """加载品种中文名称映射"""
+        # 硬编码指数代码到中文名（中金所股指期权标的）
+        # 标的格式如 SSE.000300, SSE.000016, SSE.00852 等
+        index_names = {
+            # 上交所指数（6位标准代码）
+            '000300': '沪深300',
+            '000016': '上证50',
+            '000852': '中证1000',
+            '000903': '中证100',
+            '000001': '上证指数',
+            # 上交所指数（5位代码，部分系统使用）
+            '00300': '沪深300',
+            '00016': '上证50',
+            '00852': '中证1000',
+            '00903': '中证100',
+            '00001': '上证指数',
+            # 深交所指数
+            '399005': '中小板指',
+            '399006': '创业板指',
+            '399300': '沪深300',
+            '399673': '创业板50',
+        }
+        for code, name in index_names.items():
+            self.product_names[code] = name
+
+        # 同时支持期货品种代码（商品期权和国债期权）
+        future_names = {
+            'TS': '2年期国债',
+            'TF': '5年期国债',
+            'T': '10年期国债',
+            'TL': '30年期国债',
+        }
+        for code, name in future_names.items():
+            self.product_names[code] = name
+
+        try:
+            params_file = self.project_root / 'wisecoin-symbol-params.json'
+            if params_file.exists():
+                with open(params_file, 'r', encoding='utf-8') as f:
+                    params = json.load(f)
+
+                # 遍历所有交易所，提取品种名称
+                for exchange, products in params.items():
+                    if exchange.startswith('_'):  # 跳过说明字段
+                        continue
+                    if isinstance(products, dict):
+                        for product_code, info in products.items():
+                            if product_code.startswith('_'):  # 跳过交易所说明
+                                continue
+                            if isinstance(info, dict) and 'name' in info:
+                                # 存储大写的品种代码 -> 中文名称
+                                self.product_names[product_code.upper()] = info['name']
+
+                print(f"已加载 {len(self.product_names)} 个品种名称")
+        except Exception as e:
+            print(f"加载品种名称失败: {e}")
 
     def is_trading_time(self):
         """判断当前是否为交易时间"""
@@ -983,52 +1046,67 @@ class OptionTShapeWindow(QMainWindow):
             QMessageBox.critical(self, "错误", error_msg)
     
     def build_contract_list(self):
-        """构建合约列表，按期权沉淀排序"""
+        """构建合约列表，按期权沉淀资金排序"""
         if self.market_overview_df is None or self.option_ref_df is None:
             return
-        
+
         if '标的合约' not in self.option_ref_df.columns or '交割年月' not in self.option_ref_df.columns:
             return
-        
-        contracts_df = self.option_ref_df[['标的合约', '交割年月']].drop_duplicates()
-        
-        # 尝试获取沉淀资金（兼容不同列名）
-        deposit_col = None
-        if '沉淀资金(亿)' in self.market_overview_df.columns:
-            deposit_col = '沉淀资金(亿)'
-        elif '期权沉淀(亿)' in self.market_overview_df.columns:
-            deposit_col = '期权沉淀(亿)'
 
-        if deposit_col:
-            contracts_df = contracts_df.merge(
-                self.market_overview_df[['标的合约', deposit_col]],
-                on='标的合约',
-                how='left'
-            )
-            contracts_df = contracts_df.sort_values(deposit_col, ascending=False, na_position='last')
+        contracts_df = self.option_ref_df[['标的合约', '交割年月']].drop_duplicates()
+
+        # 计算期权沉淀资金（从期权参考表汇总）
+        option_deposit_col = None
+        if '沉淀资金(万)' in self.option_ref_df.columns:
+            option_deposit_col = '沉淀资金(万)'
+        elif '沉淀资金(亿)' in self.option_ref_df.columns:
+            option_deposit_col = '沉淀资金(亿)'
+
+        if option_deposit_col:
+            # 按标的合约汇总期权沉淀资金
+            option_capital = self.option_ref_df.groupby('标的合约')[option_deposit_col].sum().reset_index()
+            # 如果是万元，转换为亿元
+            if option_deposit_col == '沉淀资金(万)':
+                option_capital['期权沉淀(亿)'] = option_capital[option_deposit_col] / 10000
+            else:
+                option_capital['期权沉淀(亿)'] = option_capital[option_deposit_col]
+            contracts_df = contracts_df.merge(option_capital[['标的合约', '期权沉淀(亿)']], on='标的合约', how='left')
+            contracts_df = contracts_df.sort_values('期权沉淀(亿)', ascending=False, na_position='last')
         else:
             contracts_df = contracts_df.sort_values(['标的合约', '交割年月'])
-        
+
         self.contract_list = []
         for _, row in contracts_df.iterrows():
             underlying = str(row['标的合约'])
             expiry = str(row['交割年月'])
-            deposit = row.get(deposit_col, None) if deposit_col else None
+            deposit = row.get('期权沉淀(亿)', None)
 
-            display_text = f"{underlying} {expiry}"
+            # 提取品种代码并获取中文名称
+            product_code = self._extract_product_code(underlying)
+            product_name = self.product_names.get(product_code, '')
+
+            # 构建显示文本：品种代码【中文名】交割月 (沉淀:xx亿)
+            display_parts = []
+            if product_name:
+                display_parts.append(f"{product_code}【{product_name}】")
+            else:
+                display_parts.append(underlying)
+            display_parts.append(expiry)
+
+            display_text = ' '.join(display_parts)
             if pd.notna(deposit):
                 display_text += f" (沉淀:{deposit:.2f}亿)"
-            
+
             self.contract_list.append({
                 'display': display_text,
                 'underlying': underlying,
                 'expiry': expiry
             })
-        
+
         self.contract_combo.blockSignals(True)
         self.contract_combo.clear()
         self.contract_combo.addItems([c['display'] for c in self.contract_list])
-        
+
         # 尝试通过持久化标识(标的+交割月)还原选择
         if self.current_underlying and self.current_expiry:
             target_idx = -1
@@ -1043,7 +1121,7 @@ class OptionTShapeWindow(QMainWindow):
         elif self.contract_list:
             self.contract_combo.setCurrentIndex(0)
         self.contract_combo.blockSignals(False)
-        
+
         # 更新导航按钮状态
         self._update_nav_buttons()
     
@@ -1810,32 +1888,41 @@ class OptionTShapeWindow(QMainWindow):
         self.kline_canvas.draw()
     
     def plot_vol_surface(self, df, underlying):
-        """绘制波动率曲面 - X轴:剩余期限, Y轴:行权价, Z轴:隐含波动率 (优化版)"""
+        """绘制波动率曲面 - X轴:到期年月, Y轴:行权价, Z轴:隐含波动率"""
         self.surface_fig.clear()
-        # 设置背景色
-        self.surface_fig.patch.set_facecolor('#F0F2F6')
-        
+        # 设置背景色为白色
+        self.surface_fig.patch.set_facecolor('white')
+
         if df is None or df.empty:
             ax = self.surface_fig.add_subplot(111)
-            ax.set_facecolor('#F0F2F6')
+            ax.set_facecolor('white')
             ax.text(0.5, 0.5, '无数据', transform=ax.transAxes, ha='center', va='center')
             ax.axis('off')
             self.surface_canvas.draw()
             return
-        
+
         # 过滤有效数据 (IV > 0.5 以排除极端接近0的异常点)
-        plot_df = df[(df['隐含波动率'] > 0.5) & (df['剩余天数'] > 0) & (df['行权价'] > 0)].copy()
-        
-        # 合成 Call/Put IV (取平均): 对同一剩余天数和行权价的IV取均值 - 业界标准做法
+        plot_df = df[(df['隐含波动率'] > 0.5) & (df['行权价'] > 0)].copy()
+
+        # 需要有交割年月字段
+        if '交割年月' not in plot_df.columns:
+            ax = self.surface_fig.add_subplot(111)
+            ax.set_facecolor('white')
+            ax.text(0.5, 0.5, '缺少交割年月字段', transform=ax.transAxes, ha='center', va='center')
+            ax.axis('off')
+            self.surface_canvas.draw()
+            return
+
+        # 合成 Call/Put IV (取平均): 对同一交割年月和行权价的IV取均值
         if not plot_df.empty:
-            plot_df = plot_df.groupby(['剩余天数', '行权价'], as_index=False).agg({
+            plot_df = plot_df.groupby(['交割年月', '行权价'], as_index=False).agg({
                 '隐含波动率': 'mean',
-                '标的现价': 'first'
+                '剩余天数': 'first'
             })
-        
+
         if len(plot_df) < 6:
             ax = self.surface_fig.add_subplot(111)
-            ax.set_facecolor('#F0F2F6')
+            ax.set_facecolor('white')
             ax.text(0.5, 0.5, f'数据不足 ({len(plot_df)}点)', transform=ax.transAxes, ha='center', va='center')
             ax.axis('off')
             self.surface_canvas.draw()
@@ -1844,34 +1931,29 @@ class OptionTShapeWindow(QMainWindow):
         try:
             from matplotlib import cm
             ax = self.surface_fig.add_subplot(111, projection='3d')
-            ax.set_facecolor('#F0F2F6')
-            
-            # 标准化行权价 (使用Moneyness百分比)
-            und_price = plot_df['标的现价'].iloc[0] if '标的现价' in plot_df.columns else 0
-            if und_price > 0:
-                plot_df['Moneyness'] = (plot_df['行权价'] / und_price - 1) * 100
-            else:
-                plot_df['Moneyness'] = plot_df['行权价']
-            
-            # 交换轴以符合用户需求: Left=标的合约(期限), Right=行权价
-            # X轴：剩余天数（从近到远）
-            # Y轴：Moneyness (%)
+            ax.set_facecolor('white')
+
+            # 获取所有唯一的到期年月并排序
+            expiries = sorted(plot_df['交割年月'].unique(), reverse=True)  # 倒序：最近月在前
+            expiry_to_num = {exp: i for i, exp in enumerate(expiries)}
+
+            # X轴：到期年月（转为数值索引）
+            # Y轴：行权价
             # Z轴：隐含波动率
-            x = plot_df['剩余天数'].values
-            y = plot_df['Moneyness'].values
+            plot_df['到期序号'] = plot_df['交割年月'].map(expiry_to_num)
+            x = plot_df['到期序号'].values
+            y = plot_df['行权价'].values
             z = plot_df['隐含波动率'].values
-            
-            # 创建更密集的网格 (100x100)
+
+            # 创建更密集的网格
             xi = np.linspace(x.min(), x.max(), 100)
             yi = np.linspace(y.min(), y.max(), 100)
             xi_grid, yi_grid = np.meshgrid(xi, yi)
-            
-            # 插值 (尝试 cubic，失败回退 linear/nearest)
+
+            # 插值
             try:
-                # 使用 rescale=True 处理不同量纲 (天数 vs 百分比)
                 zi_grid = griddata((x, y), z, (xi_grid, yi_grid), method='linear', rescale=True)
-                
-                # 只要点数足够(>10)，尝试 cubic 插值以获得光滑曲面
+
                 if len(x) > 10:
                     try:
                         zi_cubic = griddata((x, y), z, (xi_grid, yi_grid), method='cubic', rescale=True)
@@ -1882,82 +1964,62 @@ class OptionTShapeWindow(QMainWindow):
                         pass
             except:
                 zi_grid = griddata((x, y), z, (xi_grid, yi_grid), method='nearest', rescale=True)
-            
+
             # 填充NaN值
             if np.any(np.isnan(zi_grid)):
                 zi_nearest = griddata((x, y), z, (xi_grid, yi_grid), method='nearest', rescale=True)
                 zi_grid = np.where(np.isnan(zi_grid), zi_nearest, zi_grid)
-            
-            # 确保IV非负 (Cubic插值可能产生负值)
+
+            # 确保IV非负
             zi_grid = np.maximum(zi_grid, 0)
-            
-            # 绘制曲面 - RdYlBu_r (红-黄-蓝)
-            surf = ax.plot_surface(xi_grid, yi_grid, zi_grid, cmap=cm.RdYlBu_r, 
-                                   rcount=100, ccount=100, # 高密度网格保证平滑度
+
+            # 绘制曲面
+            surf = ax.plot_surface(xi_grid, yi_grid, zi_grid, cmap=cm.RdYlBu_r,
+                                   rcount=100, ccount=100,
                                    linewidth=0.1, antialiased=True, alpha=0.9,
                                    edgecolor=(0.5, 0.5, 0.5, 0.2))
-            
-            # 绘制实际数据点 (逻辑更新：最近月黑色，其他跟随cmap)
-            min_days = plot_df['剩余天数'].min()
-            
-            # 最近月数据
-            nearest_mask = plot_df['剩余天数'] == min_days
-            if nearest_mask.any():
-                ax.plot(plot_df.loc[nearest_mask, '剩余天数'], 
-                        plot_df.loc[nearest_mask, 'Moneyness'], 
-                        plot_df.loc[nearest_mask, '隐含波动率'], 
-                        color='black', linewidth=1, zorder=10, label='最近月')
-                # 同时也画点
-                ax.scatter(plot_df.loc[nearest_mask, '剩余天数'], 
-                           plot_df.loc[nearest_mask, 'Moneyness'], 
-                           plot_df.loc[nearest_mask, '隐含波动率'], 
-                           color='black', s=8, zorder=10)
 
-            # 其他月份数据 (使用 scatter 并映射颜色)
-            other_mask = ~nearest_mask
-            if other_mask.any():
-                # 获取 colormap 对象
-                cmap = cm.RdYlBu_r
-                norm = plt.Normalize(vmin=z.min(), vmax=z.max())
-                colors = cmap(norm(plot_df.loc[other_mask, '隐含波动率'].values))
-                
-                ax.scatter(plot_df.loc[other_mask, '剩余天数'], 
-                           plot_df.loc[other_mask, 'Moneyness'], 
-                           plot_df.loc[other_mask, '隐含波动率'], 
-                           c=colors, s=5, alpha=0.6, depthshade=True)
-            
-            # 设置坐标轴标签 - 加粗深色
-            ax.set_xlabel('期限', fontsize=9, labelpad=8, fontweight='bold', color='#2F4F4F')
-            ax.set_ylabel('行权价 (%)', fontsize=9, labelpad=8, fontweight='bold', color='#2F4F4F')
-            
+            # 绘制实际数据点
+            cmap = cm.RdYlBu_r
+            norm = plt.Normalize(vmin=z.min(), vmax=z.max())
+            colors = cmap(norm(z))
+
+            ax.scatter(x, y, z, c=colors, s=8, alpha=0.7, depthshade=True)
+
+            # 设置X轴刻度为实际的到期年月
+            ax.set_xticks(list(expiry_to_num.values()))
+            ax.set_xticklabels([str(exp) for exp in expiries], fontsize=7, rotation=30)
+
+            # 设置坐标轴标签
+            ax.set_xlabel('到期年月', fontsize=9, labelpad=8, fontweight='bold', color='#333333')
+            ax.set_ylabel('行权价', fontsize=9, labelpad=8, fontweight='bold', color='#333333')
+
             # 设置刻度样式
-            ax.tick_params(axis='x', pad=2, colors='#555555', labelsize=8)
+            ax.tick_params(axis='x', pad=2, colors='#555555', labelsize=7)
             ax.tick_params(axis='y', pad=2, colors='#555555', labelsize=8)
             ax.tick_params(axis='z', pad=5, colors='#555555', labelsize=8)
-            
+
             # 设置网格颜色
-            ax.xaxis._axinfo["grid"]['color'] = (0.7, 0.7, 0.7, 0.5)
-            ax.yaxis._axinfo["grid"]['color'] = (0.7, 0.7, 0.7, 0.5)
-            ax.zaxis._axinfo["grid"]['color'] = (0.7, 0.7, 0.7, 0.5)
-            
-            # 优化视角：X轴(期限)在左侧，Y轴(行权价)在右侧
-            ax.view_init(elev=30, azim=-45)
-            
-            # 设置坐标轴范围反转 (期限：从大到小)
-            ax.invert_xaxis()
-            
+            ax.xaxis._axinfo["grid"]['color'] = (0.8, 0.8, 0.8, 0.5)
+            ax.yaxis._axinfo["grid"]['color'] = (0.8, 0.8, 0.8, 0.5)
+            ax.zaxis._axinfo["grid"]['color'] = (0.8, 0.8, 0.8, 0.5)
+
+            # 优化视角
+            ax.view_init(elev=25, azim=-45)
+
             # 添加颜色条
             cbar = self.surface_fig.colorbar(surf, shrink=0.55, aspect=12, pad=0.1)
             cbar.set_label('IV (%)', fontsize=8)
-            
+
             # 调整边距
             self.surface_fig.subplots_adjust(left=0.0, right=0.90, top=0.95, bottom=0.05)
-            
+
         except Exception as e:
             ax = self.surface_fig.add_subplot(111)
+            ax.set_facecolor('white')
             ax.text(0.5, 0.5, f'绘图错误: {str(e)[:50]}', transform=ax.transAxes, ha='center', va='center')
             ax.axis('off')
-        
+
         self.surface_canvas.draw()
     
     def plot_vol_smile(self, df, expiry):
