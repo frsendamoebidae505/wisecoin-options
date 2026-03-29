@@ -1796,8 +1796,8 @@ class OptionTShapeWindow(QMainWindow):
             self.kline_canvas.draw()
             return
         
-        # 取最近60根K线显示
-        df = df.tail(120).reset_index(drop=True)
+        # 取最近两年（约500根日K线）显示
+        df = df.tail(500).reset_index(drop=True)
         
         try:
             ax = self.kline_fig.add_subplot(111)
@@ -2023,67 +2023,53 @@ class OptionTShapeWindow(QMainWindow):
         self.surface_canvas.draw()
     
     def plot_vol_smile(self, df, expiry):
-        """绘制微笑曲线 (优化版) - 使用Moneyness标准化，添加ATM标记"""
+        """绘制微笑曲线 - X轴:行权价, Y轴:IV"""
         self.smile_fig.clear()
-        
+
         if df is None or df.empty:
             ax = self.smile_fig.add_subplot(111)
             ax.text(0.5, 0.5, '无数据', transform=ax.transAxes, ha='center', va='center')
             ax.axis('off')
             self.smile_canvas.draw()
             return
-        
+
         temp = df.copy()
         temp['期权类型'] = temp['期权类型'].apply(self._normalize_option_type)
         temp = temp[(temp['隐含波动率'] > 0) & (temp['行权价'] > 0)]
-        
+
         if temp.empty:
             ax = self.smile_fig.add_subplot(111)
             ax.text(0.5, 0.5, '无有效波动率数据', transform=ax.transAxes, ha='center', va='center')
             ax.axis('off')
             self.smile_canvas.draw()
             return
-        
-        # 计算Moneyness
+
+        # 获取标的现价用于ATM标记
         und_price = temp['标的现价'].iloc[0] if '标的现价' in temp.columns and pd.notna(temp['标的现价'].iloc[0]) else None
-        if und_price and und_price > 0:
-            temp['Moneyness'] = (temp['行权价'] / und_price - 1) * 100
-            x_label = '价值度 (%)'
-            x_col = 'Moneyness'
-        else:
-            x_label = '行权价'
-            x_col = '行权价'
-        
+
+        # X轴：行权价
+        x_col = '行权价'
+        x_label = '行权价'
+
         calls = temp[temp['期权类型'] == 'CALL'].sort_values(x_col)
         puts = temp[temp['期权类型'] == 'PUT'].sort_values(x_col)
-        
+
         ax = self.smile_fig.add_subplot(111)
-        
+
         # 绘制看涨和看跌曲线
         if not calls.empty:
-            ax.plot(calls[x_col], calls['隐含波动率'], label='看涨 (Call)', 
+            ax.plot(calls[x_col], calls['隐含波动率'], label='看涨 (Call)',
                     color='#cc0000', marker='o', markersize=3, linewidth=2, alpha=0.85)
         if not puts.empty:
-            ax.plot(puts[x_col], puts['隐含波动率'], label='看跌 (Put)', 
+            ax.plot(puts[x_col], puts['隐含波动率'], label='看跌 (Put)',
                     color='#008800', marker='s', markersize=3, linewidth=2, alpha=0.85)
-        
+
         # 添加ATM垂直线
-        if x_col == 'Moneyness':
-            ax.axvline(x=0, color='blue', linestyle='--', linewidth=1.5, alpha=0.7, label='ATM')
-        elif und_price:
+        if und_price and und_price > 0:
             ax.axvline(x=und_price, color='blue', linestyle='--', linewidth=1.5, alpha=0.7, label=f'ATM ({und_price:.2f})')
-        
-        # 填充ITM/OTM区域
-        if x_col == 'Moneyness':
-            xlim = ax.get_xlim()
-            ylim = ax.get_ylim()
-            ax.axvspan(xlim[0], 0, alpha=0.05, color='green', label='_nolegend_')  # ITM for Put
-            ax.axvspan(0, xlim[1], alpha=0.05, color='red', label='_nolegend_')    # ITM for Call
-            ax.set_xlim(xlim)
-            ax.set_ylim(ylim)
-        
+
         ax.set_xlabel(x_label, fontsize=10)
-        ax.set_ylabel('隐含波动率 (%)', fontsize=10)
+        ax.set_ylabel('IV (%)', fontsize=10)
         ax.legend(loc='upper right', fontsize=9, framealpha=0.9)
         ax.grid(True, alpha=0.3, linestyle='--')
 
