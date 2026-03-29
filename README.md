@@ -1,34 +1,35 @@
 # WiseCoin 期权分析系统
 
-> 架构重构版本 | 更新时间: 2026-03-26
+> 更新时间: 2026-03-29
 
-基于 Python 的期货期权量化分析平台，支持期权品种筛选、行情获取、波动率分析、策略生成等功能。
+基于 Python 的期权分析工具，支持期权品种筛选、行情获取、波动率分析等功能。
 
 ---
 
 ## 一、快速开始
 
-### 智能启动（推荐）
+### 快速启动
 
 ```bash
 cd /Users/playbonze/pb-quant/26WiseCoin/wisecoin-options-free
 python3 run.py
 ```
 
-智能模式会自动：
-1. 检测必需的 xlsx 文件是否存在
+该模式会自动：
+1. 检测必需的数据文件是否存在（支持 CSV/XLSX 格式）
 2. 如缺失则运行 `oneclick` 生成数据
-3. 检测并清理旧的 GUI 进程
-4. 启动实时监控 GUI
+3. 启动实时监控 GUI
 
 ### 其他启动方式
 
 ```bash
 python3 run.py --force      # 强制重新生成数据后启动GUI
 python3 run.py --no-gui     # 只生成数据，不启动GUI
-python3 run.py --scheduler  # 启动定时调度
-python3 run.py --live       # 仅启动实时监控GUI
 ```
+
+### macOS 双击启动
+
+双击 `run.command` 文件即可启动系统（自动清理旧进程）。
 
 ### 一键执行
 
@@ -38,12 +39,11 @@ python3 -m cli.oneclick
 
 一键执行依次运行：
 1. 数据备份
-2. 期权行情获取（含标的期货行情）
-3. OpenCTP数据获取
+2. OpenCTP数据获取
+3. 期权行情获取
 4. 期权综合分析
 5. 期货联动分析
-6. 实时监控配置生成
-7. 期货K线获取
+6. 期货K线获取
 
 ---
 
@@ -56,20 +56,21 @@ python3 -m cli.oneclick
 | `python3 -m data.backup` | 数据备份 | `backups/YYYYMMDD_HHMM/` |
 | `python3 -m data.backup list` | 列出所有备份 | - |
 | `python3 -m data.backup clean` | 清理旧备份（保留10个） | - |
-| `python3 -m data.option_quotes` | 期权+期货行情获取 | `wisecoin-期权行情.xlsx` 等 |
 | `python3 -m data.openctp` | OpenCTP数据获取 | `wisecoin-openctp数据.xlsx` |
-| `python3 -m data.klines` | 期货K线获取 | `wisecoin-期货K线.xlsx` |
+| `python3 -m data.option_quotes` | 期权+期货行情获取 | `wisecoin-期权行情.csv` 等 |
+| `python3 -m data.klines` | 期货K线获取 | `wisecoin-期货K线.csv` (250根K线) |
 | `python3 -m data.live_symbol` | 实时监控配置 | `wisecoin-symbol-live.json` |
 
 ### 核心层 (core/)
 
 核心层模块被CLI层调用，不直接作为命令行工具使用：
 
-| 模块 | 类 | 说明 |
-|------|-----|------|
-| `core.analyzer` | `OptionAnalyzer`, `OptionScorer`, `PCRAnalyzer`, `MaxPainCalculator` | 期权多因子分析 |
+| 模块 | 主要类/函数 | 说明 |
+|------|-------------|------|
+| `core.models` | `OptionQuote`, `FutureQuote`, `AnalyzedOption`, `StrategySignal` | 数据模型定义 |
+| `core.analyzer` | `OptionAnalyzer` | 期权多因子分析 |
 | `core.iv_calculator` | `IVCalculator` | 隐含波动率与Greeks计算 |
-| `core.futures_analyzer` | `FuturesAnalyzer` | 期货分析、货权联动 |
+| `core.futures_analyzer` | `FuturesAnalyzer`, `generate_market_summary`, `generate_product_analysis` | 期货分析、货权联动 |
 
 ### CLI层 (cli/)
 
@@ -86,24 +87,26 @@ python3 -m cli.oneclick
 
 ### 3.1 数据文件
 
-| 文件名 | 说明 | 工作表 |
-|--------|------|--------|
-| `wisecoin-期权行情.xlsx` | 期权实时行情 | 按品种分类的Sheet |
-| `wisecoin-期货行情.xlsx` | 标的期货行情 | 按品种分类的Sheet |
-| `wisecoin-期权品种.xlsx` | 期权品种汇总 | Summary + 各品种Sheet |
-| `wisecoin-期货K线.xlsx` | 期货日K线数据 | Summary + 各合约Sheet (250根K线) |
-| `wisecoin-openctp数据.xlsx` | OpenCTP补充数据 | 多Sheet |
-| `wisecoin-symbol-live.json` | 实时监控标的配置 | 标的合约列表 (JSON数组)，用于过滤期权数据 |
+| 文件名 | 格式 | 说明 |
+|--------|------|------|
+| `wisecoin-期权行情.csv` | CSV | 期权实时行情（优先格式） |
+| `wisecoin-期权行情.xlsx` | XLSX | 期权实时行情（兼容格式） |
+| `wisecoin-期货行情.xlsx` | XLSX | 标的期货行情 |
+| `wisecoin-期权品种.xlsx` | XLSX | 期权品种汇总 |
+| `wisecoin-期货K线.csv` | CSV | 期货日K线数据（250根，优先格式） |
+| `wisecoin-期货K线.xlsx` | XLSX | 期货日K线数据（兼容格式） |
+| `wisecoin-openctp数据.xlsx` | XLSX | OpenCTP补充数据 |
+| `wisecoin-symbol-live.json` | JSON | 实时监控标的配置 |
 
 > **提示**: 当存在 `wisecoin-symbol-live.json` 时，`data.option_quotes` 模块会自动读取该配置，只获取配置中指定的标的合约的期权数据，大幅降低数据获取开销。
 
 ### 3.2 分析文件
 
-| 文件名 | 说明 | 工作表 |
-|--------|------|--------|
+| 文件名 | 说明 | 主要工作表 |
+|--------|------|------------|
 | `wisecoin-期权排行.xlsx` | 期权排行分析 | 期权排行、方向型期权、波动率型期权、期权PCR、期权痛点、期权资金 |
 | `wisecoin-期权参考.xlsx` | 期权参考(含IV/Greeks) | 期权参考 (52列全字段) |
-| `wisecoin-货权联动.xlsx` | 货权联动分析 | 期货市场、货权联动、期货品种、期货板块、期货排行、期货涨跌、期货看多、期货看空、期货资金 |
+| `wisecoin-货权联动.xlsx` | 货权联动分析 | 期货市场、货权联动、期货品种、期货板块、期货排行等9个工作表 |
 | `wisecoin-市场概览.xlsx` | 市场概览汇总 | 期货市场、期权市场、货权联动、期货品种、期货板块等16个工作表 |
 
 ### 3.3 期权参考.xlsx 字段说明 (52列)
@@ -128,9 +131,12 @@ python3 -m cli.oneclick
 ```
 wisecoin-options-free/
 ├── common/                 # 公共模块
-│   ├── config.py          # 配置管理
+│   ├── config.py          # 配置管理（支持TqAuth、实盘账户）
 │   ├── logger.py          # 日志系统
-│   └── exceptions.py      # 异常定义
+│   ├── exceptions.py      # 异常定义
+│   ├── metrics.py         # 性能指标
+│   ├── excel_io.py        # Excel读写工具
+│   └── error_handler.py   # 错误处理
 │
 ├── data/                   # 数据层
 │   ├── __init__.py        # 延迟导入
@@ -143,19 +149,10 @@ wisecoin-options-free/
 │   └── tqsdk_client.py    # TqSDK客户端封装
 │
 ├── core/                   # 核心层
+│   ├── models.py          # 数据模型定义
 │   ├── analyzer.py        # 期权分析器
 │   ├── iv_calculator.py   # IV与Greeks计算
 │   └── futures_analyzer.py # 期货分析器
-│
-├── strategy/               # 策略层
-│   ├── evaluator.py       # 策略评估
-│   ├── signals.py         # 信号生成
-│   └── arbitrage.py       # 套利检测
-│
-├── trade/                  # 交易层
-│   ├── executor.py        # 订单执行
-│   ├── position.py        # 持仓管理
-│   └── position_mock.py   # 模拟持仓
 │
 ├── cli/                    # CLI层
 │   ├── oneclick.py        # 一键执行
@@ -164,9 +161,15 @@ wisecoin-options-free/
 │   ├── futures_analyzer.py # 期货分析CLI
 │   └── live_gui.py        # 实时监控GUI
 │
+├── tests/                  # 测试目录
+│   └── test_*.py          # 单元测试文件
+│
+├── backups/                # 备份目录（最多10个）
+│
 ├── run.py                  # 智能启动入口
 ├── run.command             # macOS双击启动脚本
-└── backups/                # 备份目录（最多10个）
+├── config.json             # 账号配置文件
+└── config.example.json     # 配置示例文件
 ```
 
 ---
@@ -200,7 +203,7 @@ vim config.json
             "password": "Simnow密码"
         },
         "4": {
-            "broker": "渤海期货",
+            "broker": "期货公司名称",
             "account": "实盘账号",
             "password": "实盘密码"
         }
@@ -217,20 +220,18 @@ vim config.json
 export TQ_AUTH_USER="your_username"
 export TQ_AUTH_PASSWORD="your_password"
 
-# 实盘账户配置（运行模式3-8需要）
+# 实盘账户配置
 export TQ_BROKER_4="broker_name"
 export TQ_ACCOUNT_4="account_number"
 export TQ_PASSWORD_4="account_password"
 ```
 
 ### 运行模式
+
 | 模式 | 说明 |
 |------|------|
 | 1 | TqSim 回测 |
 | 2 | TqKq 快期模拟（默认） |
-| 3 | Simnow 模拟 |
-| 4-8 | 各期货公司实盘 |
-
 ---
 
 ## 六、依赖说明
@@ -248,57 +249,16 @@ export TQ_PASSWORD_4="account_password"
 - **matplotlib**: 图表绑制
 
 ### 安装依赖
+
 ```bash
 pip install pandas openpyxl numpy scipy
-pip install tqsdk  # 行情获取
+pip install tqsdk           # 行情获取
 pip install PyQt5 matplotlib  # GUI和图表
 ```
 
 ---
 
-## 八、迁移对应表
-
-原始脚本与新模块对应关系：
-
-### 数据层
-
-| 原始脚本 | 新模块 | 说明 |
-|----------|--------|------|
-| `00wisecoin_options_backup.py` | `data.backup` | 数据备份 |
-| `00wisecoin_options_backup_clean.py` | `data.backup clean` | 备份清理 |
-| `01wisecoin-options-ranking.py` | `data.option_quotes` | 期权合约获取 |
-| `02wisecoin-openctp-api.py` | `data.openctp` | OpenCTP数据 |
-| `09wisecoin-futures-klines.py` | `data.klines` | K线获取 |
-| `13wisecoin_options_live_symbol.py` | `data.live_symbol` | 实时监控配置 |
-| `14wisecoin_options_client_data.py` | `data.option_quotes` | 期权数据 |
-| `14wisecoin_options_client_data_klines.py` | `data.klines` | K线获取CLI |
-
-### 核心层
-
-| 原始脚本 | 新模块 | 说明 |
-|----------|--------|------|
-| `03wisecoin-options-analyze.py` | `core.analyzer` + `cli.option_analyzer` | 期权分析 |
-| `04wisecoin-options-iv.py` | `core.iv_calculator` + `cli.option_analyzer` | IV计算(已整合) |
-| `05wisecoin-futures-analyze.py` | `core.futures_analyzer` + `cli.futures_analyzer` | 期货分析 |
-
-### CLI层
-
-| 原始脚本 | 新模块 | 说明 |
-|----------|--------|------|
-| `06wisecoin_oneclick.py` | `cli.oneclick` | 一键执行 |
-| `07wisecoin_run.py` | `cli.scheduler` | 定时调度 |
-| `18wisecoin_options_client_live.py` | `cli.live_gui` | 实时监控GUI |
-
-### 代码量对比
-
-| 指标 | 原始文件 | 新模块 | 变化 |
-|------|----------|--------|------|
-| 总行数 | 34,286 | 14,701 | -57.1% |
-| 文件数 | 28 | 按层级组织 | 结构化 |
-
----
-
-## 九、常见问题
+## 七、常见问题
 
 ### Q1: 运行 `python3 -m data.xxx` 报错 "No module named 'data'"
 **A:** 确保在项目根目录下运行命令：
@@ -325,7 +285,11 @@ python3 -m cli.futures_analyzer
 
 ---
 
-## 十、更新日志
+## 八、更新日志
+
+### 2026-03-29
+- 优化 README.md 文档，修正目录结构描述
+- 数据文件支持 CSV 格式（优先使用）
 
 ### 2026-03-26
 - 完成架构重构，代码量从 34,286 行减少到 14,701 行 (-57%)
@@ -336,17 +300,13 @@ python3 -m cli.futures_analyzer
 - 新增 `cli/futures_analyzer.py` 期货品种、期货板块分页
 - 优化 `common/config.py` 支持从配置文件加载账号
 - 优化 `data/tqsdk_client.py` 移除硬编码账号，从 Config 读取
-- 优化 `data/openctp.py` 自动创建 symbol-params.json，路径统一到项目根目录
-- 优化 `data/option_quotes.py` 支持 wisecoin-symbol-live.json 过滤标的，降低数据获取开销
-- 优化 `cli/live_gui.py` 刷新数据按钮调用 oneclick 模块，保证数据处理一致性
-- 优化 `cli/live_gui.py` 路径处理，移除冗余备份逻辑
+- 优化 `data/openctp.py` 自动创建 symbol-params.json
+- 优化 `data/option_quotes.py` 支持 wisecoin-symbol-live.json 过滤标的
+- 优化 `cli/live_gui.py` 刷新数据按钮调用 oneclick 模块
 - 优化 `data/backup.py` 自动清理，最多保留10个备份
-- 修复 `data/backup.py` 递归复制问题
-- 修复 `data/live_symbol.py` 日志导入错误，兼容多种列名
-- 测试状态: 310 passed, 7 failed, 3 errors
 
 ---
 
-## 十一、联系方式
+## 九、联系方式
 
 如有问题，请提交 Issue 到项目仓库。
