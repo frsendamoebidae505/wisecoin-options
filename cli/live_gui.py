@@ -666,27 +666,28 @@ class OptionTShapeWindow(QMainWindow):
         self.underlying_stats_grid.setVerticalSpacing(3)
         self.underlying_stat_labels = {}
         
-        # 字段映射：GUI标签 -> Excel列名（兼容新旧格式）
-        # 货权联动表的列名可能与GUI预期不一致，需要映射
         self.underlying_field_map = {
             "标的合约": "标的合约",
             "期货现价": "期货现价",
+            "涨跌%": "涨跌%",
             "杠杆涨跌%": "杠杆涨跌%",
-            "期货沉淀(亿)": "期货沉淀(亿)",  # 直接使用期货沉淀列
-            "期货状态": "期货趋势",          # 映射到期货趋势
-            "期货方向": "期货流向",          # 映射到期货流向
+            "期货沉淀(亿)": "期货沉淀(亿)",
+            "持仓变化%": "持仓变化%",
+            "期货趋势": "期货趋势",
+            "期货流向": "期货流向",
         }
 
         underlying_fields = [
             ("标的合约", "标的合约"),
             ("期货现价", "期货现价"),
+            ("涨跌%", "涨跌%"),
             ("杠杆涨跌%", "杠杆涨跌%"),
             ("期货沉淀(亿)", "期货沉淀(亿)"),
-            ("期货状态", "期货状态"),
-            ("期货方向", "期货方向"),
+            ("持仓变化%", "持仓变化%"),
+            ("期货趋势", "期货趋势"),
+            ("期货流向", "期货流向"),
         ]
 
-        # 一行3个指标
         for idx, (label_text, key) in enumerate(underlying_fields):
             row = idx // 3
             col = (idx % 3) * 2
@@ -709,26 +710,26 @@ class OptionTShapeWindow(QMainWindow):
         self.option_stats_grid.setVerticalSpacing(3)
         self.option_stat_labels = {}
         
-        # 字段映射：期权统计
         self.option_field_map = {
             "期权结构": "期权结构",
             "期权PCR": "期权PCR",
-            "期权沉淀(亿)": "期权沉淀(亿)",  # 直接使用期权沉淀列
+            "PCR成交": "PCR成交",
+            "期权沉淀(亿)": "期权沉淀(亿)",
             "最大痛点": "最大痛点",
             "痛点距离%": "痛点距离%",
-            "联动状态": "联动状态",
+            "情绪倾向": "情绪倾向",
         }
 
         option_fields = [
             ("期权结构", "期权结构"),
             ("期权PCR", "期权PCR"),
+            ("PCR成交", "PCR成交"),
             ("期权沉淀(亿)", "期权沉淀(亿)"),
             ("最大痛点", "最大痛点"),
             ("痛点距离%", "痛点距离%"),
-            ("联动状态", "联动状态"),
+            ("情绪倾向", "情绪倾向"),
         ]
 
-        # 一行3个指标
         for idx, (label_text, key) in enumerate(option_fields):
             row = idx // 3
             col = (idx % 3) * 2
@@ -755,33 +756,34 @@ class OptionTShapeWindow(QMainWindow):
         linkage_layout.setVerticalSpacing(4)
         self.linkage_labels = {}
         
-        # 一行6个指标，按逻辑分组
-        # 第一行：波动结构
-        # 第二行：IV分布
-        # 第三行：资金与策略
         linkage_fields = [
-            # 第一行（波动结构）
-            ("期限结构", "期限结构", 0, 0, "#0066cc"),
-            ("倾斜方向", "倾斜方向", 0, 2, "#006666"),
-            ("IV/RV比率", "IV/RV比率", 0, 4, "#cc6600"),
-            ("期限结构差", "期限结构差", 0, 6, "#0066cc"),
-            ("IV倾斜度", "IV倾斜度", 0, 8, "#006666"),
-            ("峰度", "峰度", 0, 10, "#cc6600"),
+            # Row 0: 核心联动指标（来自货权联动表）
+            ("联动状态", "联动状态", 0, 0, "#FF0000"),
+            ("共振评分", "共振评分", 0, 2, "#FF0000"),
+            ("沉淀合计", "沉淀资金合计(亿)", 0, 4, "#666600"),
+            ("策略建议", "策略建议", 0, 6, "#0066cc"),
+            ("市场解读", "市场解读", 0, 8, "#FF0000"),
 
-            # 第二行（IV分布）
-            ("短期IV", "短期IV", 1, 0, "#0066cc"),
-            ("长期IV", "长期IV", 1, 2, "#006666"),
-            ("虚值认沽IV", "虚值认沽IV均值", 1, 4, "#cc6600"),
-            ("虚值认购IV", "虚值认购IV均值", 1, 6, "#0066cc"),
-            ("偏度", "偏度", 1, 8, "#006666"),
-            ("合约数量", "合约数量", 1, 10, "#666600"),
+            # Row 1: 波动结构（来自波动率曲面）
+            ("期限结构", "期限结构", 1, 0, "#0066cc"),
+            ("倾斜方向", "倾斜方向", 1, 2, "#006666"),
+            ("IV/RV比率", "IV/RV比率", 1, 4, "#cc6600"),
+            ("期限结构差", "期限结构差", 1, 6, "#0066cc"),
+            ("IV倾斜度", "IV倾斜度", 1, 8, "#006666"),
+            ("峰度", "峰度", 1, 10, "#cc6600"),
 
-            # 第三行（资金与策略）
-            ("沉淀合计", "沉淀资金合计(亿)", 2, 0, "#666600"),
-            ("市场解读", "市场解读", 2, 2, "#FF0000"),
-            ("波曲策略", "推荐策略", 2, 4, "#FF0000"),
-            ("适合策略", "适合策略", 2, 6, "#FF0000"),
-            ("不适合策略", "不适合策略", 2, 8, "#008800"),
+            # Row 2: IV分布
+            ("短期IV", "短期IV", 2, 0, "#0066cc"),
+            ("长期IV", "长期IV", 2, 2, "#006666"),
+            ("虚值认沽IV", "虚值认沽IV均值", 2, 4, "#cc6600"),
+            ("虚值认购IV", "虚值认购IV均值", 2, 6, "#0066cc"),
+            ("偏度", "偏度", 2, 8, "#006666"),
+            ("合约数量", "合约数量", 2, 10, "#666600"),
+
+            # Row 3: 策略建议（来自波动率分析）
+            ("波曲策略", "推荐策略", 3, 0, "#FF0000"),
+            ("适合策略", "适合策略", 3, 2, "#FF0000"),
+            ("不适合策略", "不适合策略", 3, 4, "#008800"),
         ]
 
         for label_text, key, row, col, color in linkage_fields:
@@ -1194,18 +1196,15 @@ class OptionTShapeWindow(QMainWindow):
         if '标的合约' not in self.market_overview_df.columns:
             return
 
-        # 1. 匹配 市场概览/货权联动 数据 (按标的合约精确匹配)
         row_match = self.market_overview_df[
             self.market_overview_df['标的合约'].astype(str) == str(underlying)
         ]
         market_row = row_match.iloc[0] if not row_match.empty else None
 
-        # 2. 匹配 波动率曲面 分析数据 (按品种代码匹配)
         vol_row = None
         product_code = self._extract_product_code(underlying)
 
         if self.vol_surface_df is not None and product_code:
-            # 宽容匹配：去空格、转大写
             if '品种代码' in self.vol_surface_df.columns:
                 vol_match = self.vol_surface_df[
                     self.vol_surface_df['品种代码'].astype(str).str.strip().str.upper() == product_code
@@ -1213,77 +1212,210 @@ class OptionTShapeWindow(QMainWindow):
                 if not vol_match.empty:
                     vol_row = vol_match.iloc[0]
 
-        # 3. 如果Excel中没有波动率曲面汇总数据，则根据当前数据实时计算 (确保信息不为空)
         if vol_row is None and self.option_ref_df is not None and product_code:
             try:
                 vol_row = self._calculate_vol_surface_metrics(product_code)
             except Exception as e:
                 print(f"实时计算波动率指标失败: {e}")
 
-        # 4. 更新 UI 标签
-        # A. 标的统计信息 - 使用字段映射
+        # A. 标的统计信息
         for key, label in self.underlying_stat_labels.items():
             val = '-'
             if market_row is not None:
-                # 使用字段映射获取实际列名
                 actual_key = self.underlying_field_map.get(key, key)
                 if actual_key in market_row.index:
                     val = market_row[actual_key]
 
-            # 格式化: 期货沉淀(亿) 保留2位小数
-            if key == '期货沉淀(亿)' and pd.notna(val) and val != '-':
+            if key in ('期货沉淀(亿)',) and pd.notna(val) and val != '-':
+                try: val = f"{float(val):.2f}"
+                except: pass
+            elif key in ('涨跌%', '杠杆涨跌%', '持仓变化%') and pd.notna(val) and val != '-':
                 try: val = f"{float(val):.2f}"
                 except: pass
 
             label.setText(str(val) if pd.notna(val) else '-')
+            self._apply_stat_color(label, key, val, 'underlying')
 
-        # B. 期权整体统计信息 - 使用字段映射
+        # B. 期权统计信息
         for key, label in self.option_stat_labels.items():
             val = '-'
             if market_row is not None:
-                # 使用字段映射获取实际列名
                 actual_key = self.option_field_map.get(key, key)
                 if actual_key in market_row.index:
                     val = market_row[actual_key]
 
-            # 格式化: 期权PCR, 期权沉淀(亿) 保留2位小数
-            if key in ['期权PCR', '期权沉淀(亿)'] and pd.notna(val) and val != '-':
+            if key in ('期权PCR', 'PCR成交', '期权沉淀(亿)') and pd.notna(val) and val != '-':
+                try: val = f"{float(val):.2f}"
+                except: pass
+            elif key == '痛点距离%' and pd.notna(val) and val != '-':
                 try: val = f"{float(val):.2f}"
                 except: pass
 
             label.setText(str(val) if pd.notna(val) else '-')
+            self._apply_stat_color(label, key, val, 'option')
 
-        # C. 货权联动分析 (含波动率曲面汇总字段)
-        # 定义联动字段的映射（部分字段需要从不同来源获取）
-        linkage_field_map = {
-            "适合策略": "策略建议",    # 从策略建议获取
-            "沉淀资金合计(亿)": "沉淀资金(亿)",
-        }
-
+        # C. 联动分析 (核心联动 + 波动率曲面)
         for key, label in self.linkage_labels.items():
             val = '-'
-            # 先检查字段映射
-            actual_key = linkage_field_map.get(key, key)
-
-            # 逻辑：优先从 market_row 获取，若无则从 vol_row 获取
-            if market_row is not None and actual_key in market_row.index:
-                val = market_row[actual_key]
+            if market_row is not None and key in market_row.index:
+                val = market_row[key]
 
             if (val == '-' or pd.isna(val)) and vol_row is not None and key in vol_row:
                 val = vol_row[key]
 
-            # 格式化数值 (希腊字母、百分比等)
             if pd.notna(val) and val != '-':
-                if key in ['IV倾斜度', '期限结构差', '峰度', '偏度', 'IV/RV比率', '沉淀资金合计(亿)']:
+                if key in ('IV倾斜度', '期限结构差', '峰度', '偏度', 'IV/RV比率', '沉淀资金合计(亿)', '共振评分'):
                     try: val = f"{float(val):.2f}"
                     except: pass
                 elif ('IV' in key or '%' in key) and isinstance(val, (int, float)):
-                    if val < 1.0 and val > 0: # 可能是小数格式
+                    if val < 1.0 and val > 0:
                         val = f"{val*100:.2f}%"
                     else:
                         val = f"{val:.2f}%"
 
             label.setText(str(val) if pd.notna(val) else '-')
+            self._apply_stat_color(label, key, val, 'linkage')
+
+    def _apply_stat_color(self, label, key, val, section):
+        """根据字段语义和数值动态着色（中国市场惯例：红涨绿跌）"""
+        base = "font-size: 11pt;"
+
+        try:
+            val_str = str(val) if pd.notna(val) and val != '-' else ''
+            val_num = None
+            try:
+                val_num = float(str(val).replace('%', '').replace(',', ''))
+            except (ValueError, TypeError):
+                pass
+
+            # 涨跌类数值字段：正值红，负值绿
+            if key in ('涨跌%', '杠杆涨跌%', '持仓变化%', '痛点距离%', '情绪倾向'):
+                if val_num is not None and val_num > 0:
+                    label.setStyleSheet(f"{base} color: #dc2626; font-weight: bold;")
+                elif val_num is not None and val_num < 0:
+                    label.setStyleSheet(f"{base} color: #16a34a; font-weight: bold;")
+                else:
+                    label.setStyleSheet(f"{base} color: #666666;")
+                return
+
+            # PCR：<0.8 偏多(红)，>1.2 偏空(绿)，中间(橙)
+            if key in ('期权PCR', 'PCR成交'):
+                if val_num is not None:
+                    if val_num < 0.8:
+                        label.setStyleSheet(f"{base} color: #dc2626; font-weight: bold;")
+                    elif val_num > 1.2:
+                        label.setStyleSheet(f"{base} color: #16a34a; font-weight: bold;")
+                    else:
+                        label.setStyleSheet(f"{base} color: #d97706;")
+                return
+
+            # 期货趋势状态
+            if key == '期货趋势':
+                if any(k in val_str for k in ('多头强化', '强势多头')):
+                    label.setStyleSheet(f"{base} color: #dc2626; font-weight: bold;")
+                elif any(k in val_str for k in ('多头衰减', '温和多头', '弱势多头', '弱多', '减仓反弹')):
+                    label.setStyleSheet(f"{base} color: #f87171;")
+                elif any(k in val_str for k in ('空头强化', '强势空头')):
+                    label.setStyleSheet(f"{base} color: #16a34a; font-weight: bold;")
+                elif any(k in val_str for k in ('空头衰减', '温和空头', '弱势空头', '弱空', '减仓回调')):
+                    label.setStyleSheet(f"{base} color: #4ade80;")
+                else:
+                    label.setStyleSheet(f"{base} color: #666666;")
+                return
+
+            # 资金流向
+            if key == '期货流向':
+                if '增仓上涨' in val_str:
+                    label.setStyleSheet(f"{base} color: #dc2626; font-weight: bold;")
+                elif '增仓下跌' in val_str:
+                    label.setStyleSheet(f"{base} color: #16a34a; font-weight: bold;")
+                elif '减仓上涨' in val_str:
+                    label.setStyleSheet(f"{base} color: #f59e0b;")
+                elif '减仓下跌' in val_str:
+                    label.setStyleSheet(f"{base} color: #3b82f6;")
+                else:
+                    label.setStyleSheet(f"{base} color: #666666;")
+                return
+
+            # 期权结构
+            if key == '期权结构':
+                if any(k in val_str for k in ('看多', '偏多', 'CALL主导', '偏多增仓')):
+                    label.setStyleSheet(f"{base} color: #dc2626; font-weight: bold;")
+                elif any(k in val_str for k in ('看空', '偏空', 'PUT主导', '偏空增仓')):
+                    label.setStyleSheet(f"{base} color: #16a34a; font-weight: bold;")
+                elif '波动率' in val_str or '双向' in val_str:
+                    label.setStyleSheet(f"{base} color: #7c3aed; font-weight: bold;")
+                else:
+                    label.setStyleSheet(f"{base} color: #666666;")
+                return
+
+            # 联动状态
+            if key == '联动状态':
+                if any(k in val_str for k in ('趋势确认', '多头共振', '加速赶顶')):
+                    label.setStyleSheet(f"{base} color: #dc2626; font-weight: bold;")
+                elif any(k in val_str for k in ('空头确认', '空头共振', '加速赶底')):
+                    label.setStyleSheet(f"{base} color: #16a34a; font-weight: bold;")
+                elif any(k in val_str for k in ('背离', '警惕', '极度背离')):
+                    label.setStyleSheet(f"{base} color: #7c3aed; font-weight: bold;")
+                elif any(k in val_str for k in ('抄底信号', '蓄势待涨', '波动率机会')):
+                    label.setStyleSheet(f"{base} color: #d97706; font-weight: bold;")
+                else:
+                    label.setStyleSheet(f"{base} color: #666666;")
+                return
+
+            # 共振评分：分档着色
+            if key == '共振评分':
+                if val_num is not None:
+                    if val_num >= 4:
+                        label.setStyleSheet(f"{base} color: #dc2626; font-weight: bold;")
+                    elif val_num >= 2:
+                        label.setStyleSheet(f"{base} color: #f59e0b; font-weight: bold;")
+                    elif val_num >= 0:
+                        label.setStyleSheet(f"{base} color: #666666;")
+                    else:
+                        label.setStyleSheet(f"{base} color: #7c3aed; font-weight: bold;")
+                return
+
+            # 策略建议
+            if key == '策略建议':
+                if any(k in val_str for k in ('看多', '做多')):
+                    label.setStyleSheet(f"{base} color: #dc2626; font-weight: bold;")
+                elif any(k in val_str for k in ('看空', '做空')):
+                    label.setStyleSheet(f"{base} color: #16a34a; font-weight: bold;")
+                elif '观望' in val_str:
+                    label.setStyleSheet(f"{base} color: #666666;")
+                else:
+                    label.setStyleSheet(f"{base} color: #d97706;")
+                return
+
+            # 期限结构
+            if key == '期限结构':
+                if '倒挂' in val_str:
+                    label.setStyleSheet(f"{base} color: #dc2626; font-weight: bold;")
+                elif '升水' in val_str:
+                    label.setStyleSheet(f"{base} color: #16a34a;")
+                else:
+                    label.setStyleSheet(f"{base} color: #666666;")
+                return
+
+            # 倾斜方向
+            if key == '倾斜方向':
+                if '看跌' in val_str:
+                    label.setStyleSheet(f"{base} color: #16a34a; font-weight: bold;")
+                elif '看涨' in val_str:
+                    label.setStyleSheet(f"{base} color: #dc2626; font-weight: bold;")
+                else:
+                    label.setStyleSheet(f"{base} color: #666666;")
+                return
+
+            # 按区域使用默认颜色
+            if section == 'underlying':
+                label.setStyleSheet(f"{base} color: #0066cc;")
+            elif section == 'option':
+                label.setStyleSheet(f"{base} color: #cc6600;")
+
+        except Exception:
+            pass
     
     def _calculate_vol_surface_metrics(self, product_code):
         """实时计算波动率曲面指标（当Excel中没有时）"""
