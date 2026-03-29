@@ -77,25 +77,25 @@
       "name": "对二甲苯"
     },
     "MA": {
-      "margin_ratio": 0.16,
+      "margin_ratio": 0.07,
       "fee_ratio": 0.0001008,
       "volume_multiple": 10,
       "name": "甲醇"
     },
     "SA": {
-      "margin_ratio": 0.12,
+      "margin_ratio": 0.09,
       "fee_ratio": 0.0002008,
       "volume_multiple": 20,
       "name": "纯碱"
     },
     "PK": {
-      "margin_ratio": 0.07,
+      "margin_ratio": 0.1,
       "fee_ratio": 0.0000008,
       "volume_multiple": 5,
       "name": "花生仁"
     },
     "SM": {
-      "margin_ratio": 0.08,
+      "margin_ratio": 0.1,
       "fee_ratio": 0.0000008,
       "volume_multiple": 5,
       "name": "锰硅"
@@ -107,7 +107,7 @@
       "name": "短纤"
     },
     "UR": {
-      "margin_ratio": 0.1,
+      "margin_ratio": 0.08,
       "fee_ratio": 0.0001008,
       "volume_multiple": 20,
       "name": "尿素"
@@ -119,25 +119,25 @@
       "name": "红枣"
     },
     "FG": {
-      "margin_ratio": 0.13,
+      "margin_ratio": 0.1,
       "fee_ratio": 0.0000008,
       "volume_multiple": 20,
       "name": "玻璃"
     },
     "SF": {
-      "margin_ratio": 0.08,
+      "margin_ratio": 0.1,
       "fee_ratio": 0.0000008,
       "volume_multiple": 5,
       "name": "硅铁"
     },
     "SH": {
-      "margin_ratio": 0.15,
+      "margin_ratio": 0.08,
       "fee_ratio": 0.0001008,
       "volume_multiple": 30,
       "name": "烧碱"
     },
     "OI": {
-      "margin_ratio": 0.09,
+      "margin_ratio": 0.07,
       "fee_ratio": 0.0000008,
       "volume_multiple": 10,
       "name": "菜油"
@@ -155,7 +155,7 @@
       "name": "瓶片"
     },
     "AP": {
-      "margin_ratio": 0.15,
+      "margin_ratio": 0.1,
       "fee_ratio": 0.0000008,
       "volume_multiple": 10,
       "name": "苹果"
@@ -236,7 +236,7 @@
       "name": "PVC"
     },
     "jd": {
-      "margin_ratio": 0.07,
+      "margin_ratio": 0.1,
       "fee_ratio": 0.0001508,
       "volume_multiple": 10,
       "name": "鸡蛋"
@@ -257,7 +257,7 @@
       "margin_ratio": 0.11,
       "fee_ratio": 0.0000008,
       "volume_multiple": 5,
-      "name": "塑料"
+      "name": "月均塑料"
     },
     "fb": {
       "margin_ratio": 0.25,
@@ -284,7 +284,7 @@
       "name": "甘醇"
     },
     "b": {
-      "margin_ratio": 0.07,
+      "margin_ratio": 0.1,
       "fee_ratio": 0.0000008,
       "volume_multiple": 10,
       "name": "豆二"
@@ -521,7 +521,7 @@
       "name": "铝合金"
     },
     "op": {
-      "margin_ratio": 0.09,
+      "margin_ratio": 0.1,
       "fee_ratio": 0.0000508,
       "volume_multiple": 40,
       "name": "胶版纸"

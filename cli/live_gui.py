@@ -1097,9 +1097,7 @@ class OptionTShapeWindow(QMainWindow):
         if '标的合约' not in self.option_ref_df.columns or '交割年月' not in self.option_ref_df.columns:
             return
 
-        contracts_df = self.option_ref_df[['标的合约', '交割年月']].drop_duplicates()
-
-        # 计算期权沉淀资金（从期权参考表汇总）
+        # 计算期权沉淀资金（从期权参考表按标的+交割年月汇总）
         option_deposit_col = None
         if '沉淀资金(万)' in self.option_ref_df.columns:
             option_deposit_col = '沉淀资金(万)'
@@ -1107,16 +1105,17 @@ class OptionTShapeWindow(QMainWindow):
             option_deposit_col = '沉淀资金(亿)'
 
         if option_deposit_col:
-            # 按标的合约汇总期权沉淀资金
-            option_capital = self.option_ref_df.groupby('标的合约')[option_deposit_col].sum().reset_index()
+            # 按标的合约+交割年月汇总期权沉淀资金
+            option_capital = self.option_ref_df.groupby(['标的合约', '交割年月'])[option_deposit_col].sum().reset_index()
             # 如果是万元，转换为亿元
             if option_deposit_col == '沉淀资金(万)':
                 option_capital['期权沉淀(亿)'] = option_capital[option_deposit_col] / 10000
             else:
                 option_capital['期权沉淀(亿)'] = option_capital[option_deposit_col]
-            contracts_df = contracts_df.merge(option_capital[['标的合约', '期权沉淀(亿)']], on='标的合约', how='left')
+            contracts_df = option_capital[['标的合约', '交割年月', '期权沉淀(亿)']]
             contracts_df = contracts_df.sort_values('期权沉淀(亿)', ascending=False, na_position='last')
         else:
+            contracts_df = self.option_ref_df[['标的合约', '交割年月']].drop_duplicates()
             contracts_df = contracts_df.sort_values(['标的合约', '交割年月'])
 
         self.contract_list = []
